@@ -1,0 +1,1848 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>F1 Live Dashboard</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#12174A">
+<link rel="icon" href="icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Oswald:wght@500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/flag-icons/7.5.0/css/flag-icons.min.css">
+<style>
+  :root{
+    --bg: #0B0D12;
+    --panel: #171B22;
+    --panel-2: #1D232D;
+    --line: #262C36;
+    --text: #ECEEF1;
+    --muted: #8B92A0;
+    --yellow: #F5B700;
+    --yellow-dim: rgba(245,183,0,0.10);
+    --rb-navy: #12174A;
+    --green: #4ADE80;
+    --red: #F87171;
+    --ease: cubic-bezier(.22,.9,.3,1);
+  }
+  *{ box-sizing: border-box; }
+  html{ scroll-behavior: smooth; }
+  body{
+    margin:0; background:
+      radial-gradient(900px 500px at 15% -10%, rgba(245,183,0,0.05), transparent 60%),
+      radial-gradient(900px 600px at 100% 0%, rgba(18,23,74,0.5), transparent 55%),
+      var(--bg);
+    color: var(--text);
+    font-family: 'Space Mono', monospace; line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+  }
+  h1,h2,h3, .team-name, .driver-name{ font-family: 'Oswald', sans-serif; }
+  :root{ --sidebar-w: 236px; }
+  .wrap{ max-width: none; margin: 0 0 0 var(--sidebar-w); padding: 0 28px 70px; }
+  .wrap > section, .wrap > .hint{ max-width: 1180px; }
+  ::-webkit-scrollbar{ width:10px; height:10px; }
+  ::-webkit-scrollbar-track{ background: var(--bg); }
+  ::-webkit-scrollbar-thumb{ background: var(--line); border-radius: 8px; }
+  ::-webkit-scrollbar-thumb:hover{ background: #37404E; }
+
+  @keyframes fadeInUp{ from{ opacity:0; transform: translateY(8px); } to{ opacity:1; transform: translateY(0); } }
+  @keyframes shimmer{ 0%{ background-position: -400px 0; } 100%{ background-position: 400px 0; } }
+  @keyframes popIn{ from{ opacity:0; transform: scale(.96); } to{ opacity:1; transform: scale(1); } }
+  @keyframes pulseGlow{ 0%,100%{ text-shadow: 0 0 0 rgba(245,183,0,0); } 50%{ text-shadow: 0 0 18px rgba(245,183,0,0.45); } }
+  @keyframes spin{ to{ transform: rotate(360deg); } }
+  @keyframes stripeMove{ from{ background-position: 0 0; } to{ background-position: 200px 0; } }
+  @keyframes toastIn{ from{ opacity:0; transform: translate(-50%,10px); } to{ opacity:1; transform: translate(-50%,0); } }
+  @keyframes toastOut{ from{ opacity:1; } to{ opacity:0; transform: translate(-50%,10px); } }
+
+  .skeleton{
+    display:inline-block; height:12px; border-radius:3px; width:100%;
+    background: linear-gradient(90deg, #1B2029 25%, #262D39 37%, #1B2029 63%);
+    background-size: 800px 100%; animation: shimmer 1.3s linear infinite;
+  }
+
+  /* ---------- NAV ---------- */
+  nav#tabs{
+    position:fixed; left:0; top:0; bottom:0; width:var(--sidebar-w); z-index:60;
+    display:flex; flex-direction:column; flex-wrap:nowrap; align-items:stretch; gap:2px;
+    margin:0; padding:14px 12px 20px; border-right:1px solid var(--line); border-bottom:none;
+    background: rgba(12,14,19,0.94); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+    overflow-y:auto; transition: transform .3s var(--ease);
+  }
+  .brand{ display:flex; align-items:center; gap:10px; padding:6px 10px 14px; font-family:'Oswald',sans-serif; font-size:17px; font-weight:700; letter-spacing:.3px; }
+  .brand .bm{ width:28px; height:28px; border-radius:7px; background:linear-gradient(135deg,var(--yellow),#ff8a00); display:grid; place-items:center; color:#111; font-size:14px; font-weight:800; }
+  .nav-label{ font-size:10px; letter-spacing:1.4px; color:var(--muted); text-transform:uppercase; padding:14px 12px 6px; opacity:.8; }
+  nav#tabs button{ display:flex; align-items:center; gap:10px; text-align:left; width:100%; padding:9px 12px; border-radius:8px; font-size:14px; }
+  nav#tabs button .ni{ width:20px; text-align:center; font-size:15px; }
+  nav#tabs button.active{ background: rgba(245,183,0,0.09); }
+  nav#tabs button:hover{ background: rgba(255,255,255,0.05); }
+  nav#tabs #nav-indicator{ left:0; bottom:auto; width:3px; border-radius:0 3px 3px 0; transition: top .35s var(--ease), height .35s var(--ease); }
+  .live-dot{ display:none; width:8px; height:8px; border-radius:50%; background:#EF4444; margin-left:auto; box-shadow:0 0 8px #EF4444; animation: pulseDot 1.2s ease-in-out infinite; }
+  .live-dot.on{ display:inline-block; }
+  @keyframes pulseDot{ 0%,100%{ opacity:1; } 50%{ opacity:.35; } }
+  .topbar{
+    position:sticky; top:0; z-index:30; display:flex; align-items:center; gap:12px;
+    margin:0 -28px 10px; padding:12px 28px; border-bottom:1px solid var(--line);
+    background: rgba(11,13,18,0.82); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+  }
+  .topbar .page-title{ font-family:'Oswald',sans-serif; font-size:22px; font-weight:700; margin:0; }
+  .hamburger{ display:none; background:rgba(255,255,255,0.06); border:1px solid var(--line); color:var(--text); width:36px; height:36px; border-radius:8px; font-size:16px; cursor:pointer; }
+  #nav-backdrop{ display:none; position:fixed; inset:0; background:rgba(0,0,0,.55); z-index:55; }
+  #nav-backdrop.show{ display:block; }
+  @media (max-width: 900px){
+    nav#tabs{ transform: translateX(-104%); }
+    nav#tabs.open{ transform:none; box-shadow: 20px 0 60px -20px rgba(0,0,0,.8); }
+    .wrap{ margin-left:0; padding:0 16px 70px; }
+    .topbar{ margin:0 -16px 10px; padding:10px 16px; }
+    .hamburger{ display:inline-flex; align-items:center; justify-content:center; }
+  }
+  /* live tab */
+  .live-card{ background:linear-gradient(135deg, rgba(18,23,74,.55), rgba(20,24,31,.9)); border:1px solid var(--line); border-radius:12px; padding:20px; margin-bottom:18px; }
+  .live-status{ font-family:'Oswald',sans-serif; font-size:20px; margin:4px 0 6px; }
+  .live-sub{ color:var(--muted); font-size:12px; }
+  .live-badge{ display:inline-flex; align-items:center; gap:6px; background:rgba(239,68,68,.15); color:#FCA5A5; border:1px solid rgba(239,68,68,.4); border-radius:20px; padding:3px 10px; font-size:11px; letter-spacing:1px; }
+  .live-badge .live-dot{ display:inline-block; margin:0; }
+  .btn-primary{ display:inline-flex; align-items:center; gap:8px; background:var(--yellow); color:#111; border:none; border-radius:8px; padding:10px 16px; font-family:'Oswald',sans-serif; font-size:15px; font-weight:600; cursor:pointer; text-decoration:none; }
+  .btn-primary:hover{ filter:brightness(1.08); }
+  .btn-ghost{ display:inline-flex; align-items:center; gap:8px; background:rgba(255,255,255,0.06); color:var(--text); border:1px solid var(--line); border-radius:8px; padding:10px 16px; font-family:'Oswald',sans-serif; font-size:15px; cursor:pointer; }
+  .btn-ghost:hover{ border-color:var(--yellow); }
+  #live-embed{ margin-top:16px; }
+  #live-embed iframe{ width:100%; height:78vh; border:1px solid var(--line); border-radius:10px; background:#0b0d12; }
+  .toast{
+    position:fixed; left:50%; bottom:24px; transform:translateX(-50%); background: var(--panel-2);
+    border:1px solid var(--line); color: var(--text); padding:10px 18px; border-radius:24px; font-size:12px;
+    z-index:50; box-shadow:0 12px 30px -12px rgba(0,0,0,.7); animation: toastIn .3s var(--ease) both;
+    display:flex; align-items:center; gap:8px;
+  }
+  .toast.out{ animation: toastOut .3s var(--ease) both; }
+  .toast .dot{ width:6px; height:6px; border-radius:50%; background: var(--green); box-shadow:0 0 8px var(--green); }
+  nav button{
+    background: none; border: none; color: var(--muted); font-family:'Oswald',sans-serif;
+    font-size: 14px; letter-spacing:.2px; padding: 12px 16px; cursor: pointer;
+    transition: color .25s var(--ease), background .2s; position:relative;
+  }
+  nav button.active{ color: var(--yellow); }
+  nav button:hover{ color: var(--text); }
+  #nav-indicator{
+    position:absolute; bottom:-1px; height:2px; background: var(--yellow); border-radius:2px;
+    transition: left .35s var(--ease), width .35s var(--ease); box-shadow: 0 0 10px rgba(245,183,0,.6);
+  }
+  select{
+    background: var(--panel); color: var(--text); border:1px solid var(--line); border-radius:5px;
+    font-family:'Space Mono',monospace; font-size:12px; padding:8px 12px; margin-left:auto;
+    cursor:pointer; transition: border-color .2s, box-shadow .2s;
+  }
+  select:hover, select:focus{ border-color: var(--yellow); outline:none; box-shadow: 0 0 0 3px var(--yellow-dim); }
+  .hint{ color:var(--muted); font-size:11px; margin:12px 0 18px; opacity:.85; }
+
+  .tab-panel{ display:none; }
+  .tab-panel.active{ display:block; animation: fadeInUp .4s var(--ease) both; }
+
+  /* ---------- HERO ---------- */
+  .hero{
+    background: linear-gradient(135deg, var(--rb-navy), #090B14 75%);
+    border: 1px solid var(--line); border-radius: 10px; padding: 28px 26px; margin-bottom: 22px;
+    position: relative; overflow:hidden; box-shadow: 0 20px 50px -25px rgba(0,0,0,.6);
+  }
+  .hero::before{ content:""; position:absolute; inset:0;
+    background: repeating-linear-gradient(115deg, transparent 0 40px, rgba(245,183,0,0.045) 40px 42px);
+    background-size: 200px 100%; animation: stripeMove 6s linear infinite; pointer-events:none; }
+  .hero::after{ content:""; position:absolute; top:-40%; right:-10%; width:340px; height:340px; border-radius:50%;
+    background: radial-gradient(circle, rgba(245,183,0,0.10), transparent 70%); pointer-events:none; }
+  .hero-eyebrow{ color: var(--yellow); font-size: 12px; letter-spacing: 2px; margin-bottom: 8px; display:flex; align-items:center; gap:8px; }
+  .hero-eyebrow::before{ content:""; width:6px; height:6px; border-radius:50%; background: var(--yellow); box-shadow:0 0 8px var(--yellow); }
+  .hero h1{ font-size: 28px; margin: 0 0 4px; font-weight: 700; letter-spacing:.2px; }
+  .hero .circuit{ color: var(--muted); font-size: 13px; margin-bottom: 18px; }
+  .countdown{ display:flex; gap: 22px; flex-wrap: wrap; position:relative; z-index:1; }
+  .cd-num{ font-size: 34px; font-weight: 700; color: var(--yellow); font-variant-numeric: tabular-nums;
+    transition: transform .15s var(--ease); }
+  .cd-num.tick{ animation: pulseGlow .5s ease; }
+  .cd-label{ font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 1.5px; margin-top:2px; }
+  .refresh-btn{
+    position:absolute; top:18px; right:18px; background: rgba(255,255,255,0.06); border:1px solid var(--line);
+    color: var(--text); font-family:'Space Mono',monospace; font-size:11px; padding:7px 12px; border-radius:20px; cursor:pointer;
+    display:flex; align-items:center; gap:6px; transition: background .2s, border-color .2s, transform .2s; z-index:2;
+  }
+  .refresh-btn:hover{ background: rgba(255,255,255,0.14); border-color:#3A4252; transform: translateY(-1px); }
+  .refresh-btn:active{ transform: scale(.94); }
+  .refresh-btn .ic{ display:inline-block; transition: transform .5s var(--ease); }
+  .refresh-btn.spinning .ic{ animation: spin .6s linear; }
+
+  /* ---------- PANELS / TABLES ---------- */
+  .grid{ display:grid; grid-template-columns: 1.3fr 1fr; gap: 18px; }
+  @media (max-width: 820px){ .grid{ grid-template-columns: 1fr; } }
+  .panel{
+    background: linear-gradient(180deg, rgba(29,35,45,0.75), rgba(23,27,34,0.85));
+    backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+    border: 1px solid var(--line); border-radius: 10px; padding: 18px 18px 10px; margin-bottom: 18px;
+    transition: border-color .25s, transform .25s; animation: fadeInUp .45s var(--ease) both;
+  }
+  .panel:hover{ border-color: #333C4A; }
+  .panel h2{ font-size: 15px; margin: 0 0 14px; display:flex; justify-content:space-between; align-items:baseline; font-weight:600; }
+  .panel h2 span{ font-size: 11px; color: var(--muted); font-weight:400; }
+  table{ width:100%; border-collapse: collapse; font-size: 13px; }
+  th{ text-align:left; color: var(--muted); font-weight:400; font-size: 11px; text-transform:uppercase; letter-spacing:.6px; padding: 6px 8px; border-bottom: 1px solid var(--line); }
+  td{ padding: 10px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  tr{ transition: background .15s; }
+  tbody tr:hover{ background: rgba(255,255,255,0.025); }
+  tr:last-child td{ border-bottom: none; }
+  .pos{ color: var(--muted); width: 24px; }
+  .pts{ text-align:right; color: var(--text); font-weight:700; white-space:nowrap; }
+  .ptsbar{ height:3px; background: var(--line); border-radius:2px; margin-top:6px; overflow:hidden; }
+  .ptsbar-fill{ height:100%; background: linear-gradient(90deg, #C68F00, var(--yellow)); border-radius:2px;
+    transform-origin:left; animation: growBar .7s var(--ease) both; }
+  @keyframes growBar{ from{ transform: scaleX(0); } to{ transform: scaleX(1); } }
+  .row-rb{ background: linear-gradient(90deg, rgba(245,183,0,0.09), transparent 70%); }
+  .row-rb td:first-child{ box-shadow: inset 3px 0 0 var(--yellow); }
+  .team-tag{ font-size: 11px; color: var(--muted); }
+  .row-in{ animation: fadeInUp .35s var(--ease) both; }
+  .loading, .error{ color: var(--muted); font-size: 13px; padding: 10px 0; }
+  .error{ color: var(--red); }
+  .status-done{ color: var(--green); font-size:11px; }
+  .status-next{ color: var(--yellow); font-size:11px; font-weight:700; }
+  .status-upcoming{ color: var(--muted); font-size:11px; }
+
+  /* ---------- CARD GRIDS ---------- */
+  .cards{ display:grid; grid-template-columns: repeat(auto-fill, minmax(220px,1fr)); gap: 12px; }
+  .card{
+    background: linear-gradient(180deg, var(--panel-2), var(--panel)); border:1px solid var(--line); border-radius:10px;
+    padding:15px; transition: transform .22s var(--ease), border-color .22s, box-shadow .22s;
+    animation: popIn .35s var(--ease) both;
+  }
+  .card:hover{ transform: translateY(-3px); border-color:#3A4252; box-shadow: 0 12px 24px -16px rgba(0,0,0,.6); }
+  .card.rb{ border-color: rgba(245,183,0,.5); background: linear-gradient(180deg, var(--yellow-dim), var(--panel)); }
+  .card .name{ font-family:'Oswald',sans-serif; font-size:15px; margin-bottom:4px; font-weight:600; }
+  .card .meta{ color: var(--muted); font-size:11px; }
+  .card .num{ color: var(--yellow); font-weight:700; font-size:18px; float:right; }
+  .fi{ border-radius:2px; margin-right:6px; box-shadow:0 0 0 1px rgba(255,255,255,.08); vertical-align:-1px; }
+
+  /* ---------- DRIVER MODAL ---------- */
+  .card.clickable{ cursor:pointer; }
+  .modal-overlay{
+    display:none; position:fixed; inset:0; z-index:100; background:rgba(5,6,9,0.72);
+    backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+    align-items:flex-start; justify-content:center; padding:6vh 16px; overflow-y:auto;
+  }
+  .modal-overlay.open{ display:flex; animation: fadeInUp .25s var(--ease) both; }
+  .modal-card{
+    background: linear-gradient(180deg, rgba(29,35,45,0.97), rgba(20,24,31,0.99));
+    border:1px solid var(--line); border-radius:12px; padding:24px; width:100%; max-width:620px;
+    position:relative; box-shadow:0 30px 60px -20px rgba(0,0,0,.8);
+  }
+  .modal-close{
+    position:absolute; top:14px; right:14px; background:rgba(255,255,255,0.06); border:1px solid var(--line);
+    color:var(--text); width:30px; height:30px; border-radius:50%; cursor:pointer; font-size:13px;
+  }
+  .modal-close:hover{ background:rgba(255,255,255,0.14); }
+  .modal-head-name{ font-family:'Oswald',sans-serif; font-size:22px; font-weight:700; margin:0 0 4px; }
+  .modal-head-meta{ color:var(--muted); font-size:12px; display:flex; gap:12px; flex-wrap:wrap; margin-bottom:2px; }
+  .modal-head-num{ color:var(--yellow); font-size:14px; font-weight:800; font-family:'Space Mono',monospace;
+    background:rgba(245,183,0,0.12); border:1px solid rgba(245,183,0,0.3); border-radius:5px; padding:1px 7px; margin-left:8px; vertical-align:2px; }
+  .modal-head-flex{ display:flex; gap:16px; align-items:flex-start; }
+  .modal-photo, .modal-photo-ph{
+    width:92px; height:92px; border-radius:12px; object-fit:cover; flex-shrink:0;
+    background: linear-gradient(160deg, var(--panel-2), var(--panel)); border:1px solid var(--line);
+  }
+  .modal-photo-ph{ display:flex; align-items:center; justify-content:center; font-size:34px; color:var(--muted); }
+  .modal-bio{ margin:12px 0 0; font-size:12.5px; color:var(--muted); line-height:1.65; }
+  .modal-subhead{ font-size:13px; color:var(--muted); margin:20px 0 10px; font-weight:400; }
+  #driver-modal-table td, #driver-modal-table th{ font-size:12px; }
+  .circuit-stats{ display:grid; grid-template-columns:repeat(auto-fit,minmax(110px,1fr)); gap:10px; margin-top:16px; }
+  .circuit-stat{ background:rgba(255,255,255,0.03); border:1px solid var(--line); border-radius:8px; padding:10px 12px; text-align:center; }
+  .circuit-stat .v{ font-family:'Oswald',sans-serif; font-size:20px; font-weight:700; color:var(--yellow); }
+  .circuit-stat .l{ font-size:10px; color:var(--muted); text-transform:uppercase; letter-spacing:.5px; margin-top:2px; }
+  .row-clickable{ cursor:pointer; }
+  .row-clickable:hover{ background:rgba(255,255,255,0.03); }
+
+  footer{ color: var(--muted); font-size: 11px; margin-top: 26px; text-align:center; opacity:.7; }
+
+  /* ---------- v3 additions ---------- */
+  .weekend{ position:relative; z-index:1; margin-top:18px; display:grid; grid-template-columns:repeat(auto-fit,minmax(118px,1fr)); gap:8px; }
+  .weekend-head{ grid-column:1/-1; font-size:11px; color:var(--muted); }
+  .weekend-head span{ opacity:.7; }
+  .ws{ background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.08); border-radius:8px; padding:8px 10px; display:flex; flex-direction:column; gap:1px; }
+  .ws .ws-n{ font-family:'Oswald',sans-serif; font-size:13px; font-weight:600; }
+  .ws .ws-d{ font-size:10px; color:var(--muted); }
+  .ws .ws-t{ font-size:15px; font-weight:700; color:var(--yellow); }
+  .ws.done{ opacity:.45; }
+  .ws.race{ border-color:rgba(245,183,0,.45); background:rgba(245,183,0,.08); }
+  .ics-btn{ position:relative; z-index:1; margin-top:12px; align-items:center; gap:6px; background:rgba(255,255,255,0.06); border:1px solid var(--line); color:var(--text); font-family:'Space Mono',monospace; font-size:11px; padding:7px 12px; border-radius:20px; cursor:pointer; }
+  .ics-btn:hover{ border-color:var(--yellow); }
+  .wx{ position:relative; z-index:1; display:none; align-items:center; gap:12px; flex-wrap:wrap; margin-top:12px; font-size:12px; color:var(--text);
+    background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.08); border-radius:10px; padding:8px 12px; }
+  .wx .wx-i{ font-size:22px; line-height:1; }
+  .wx .wx-m{ color:var(--muted); font-size:11px; }
+  .wx.show{ display:inline-flex; }
+  .modal-card .wx{ margin-top:14px; }
+  .site-banner{ display:none; margin:0 0 16px; padding:10px 14px; border-radius:10px; font-size:13px; border:1px solid; }
+  .site-banner.show{ display:block; animation:fadeInUp .35s var(--ease) both; }
+  .site-banner.info{ background:rgba(96,165,250,.12); border-color:rgba(96,165,250,.4); }
+  .site-banner.success{ background:rgba(74,222,128,.12); border-color:rgba(74,222,128,.4); }
+  .site-banner.warn{ background:rgba(245,183,0,.14); border-color:rgba(245,183,0,.5); }
+  .site-banner.alert{ background:rgba(248,113,113,.14); border-color:rgba(248,113,113,.5); }
+  .news-item{ padding:12px 0; border-bottom:1px solid var(--line); }
+  .news-item:last-child{ border-bottom:none; }
+  .news-meta{ display:flex; gap:10px; align-items:center; font-size:11px; color:var(--muted); margin-bottom:4px; }
+  .news-tag{ background:rgba(245,183,0,.14); color:var(--yellow); border-radius:20px; padding:1px 9px; font-size:10px; text-transform:uppercase; letter-spacing:.4px; }
+  .news-title{ font-family:'Oswald',sans-serif; font-size:16px; margin-bottom:2px; }
+  .news-body{ font-size:12.5px; color:var(--muted); white-space:pre-line; }
+  .news-item.pinned .news-title{ color:var(--yellow); }
+  .evo{ font-size:10px; margin-left:6px; font-weight:700; }
+  .evo.up{ color:#4ADE80; } .evo.down{ color:#F87171; }
+  .gap{ color:var(--muted); font-weight:400; font-size:10px; margin-left:6px; }
+  .season-prog{ position:relative; z-index:1; margin:-2px 0 16px; font-size:11px; color:var(--muted); max-width:420px; }
+  .sp-bar{ height:4px; background:rgba(255,255,255,0.12); border-radius:4px; margin-top:6px; overflow:hidden; }
+  .sp-fill{ height:100%; background:linear-gradient(90deg,var(--yellow),#ff8a00); border-radius:4px; transition:width .8s var(--ease); }
+  .fl{ display:block; margin-top:2px; font-size:10px; color:#C084FC; font-weight:400; }
+  .card{ position:relative; }
+  .fav-btn{ position:absolute; right:10px; bottom:8px; background:none; border:none; color:var(--muted); font-size:18px; cursor:pointer; line-height:1; padding:2px; transition:transform .15s, color .15s; }
+  .fav-btn:hover{ transform:scale(1.25); color:var(--yellow); }
+  .fav-btn.on{ color:var(--yellow); }
+  .search-input{ width:100%; background:var(--panel-2); color:var(--text); border:1px solid var(--line); border-radius:8px; padding:9px 12px; font-family:'Space Mono',monospace; font-size:12px; margin-bottom:14px; }
+  .search-input:focus{ outline:none; border-color:var(--yellow); box-shadow:0 0 0 3px var(--yellow-dim); }
+  .champ-grid{ display:grid; grid-template-columns:repeat(auto-fit,minmax(130px,1fr)); gap:10px; margin-bottom:12px; }
+  .champ-note{ font-size:12px; line-height:1.7; color:var(--muted); margin:0 0 10px; }
+  .champ-note b{ color:var(--text); }
+  .chip{ display:inline-block; font-size:11px; border:1px solid var(--line); border-radius:14px; padding:2px 9px; margin:2px 4px 2px 0; }
+  .chart-legend{ display:flex; flex-wrap:wrap; gap:6px 14px; margin-top:8px; font-size:11px; }
+  .chart-legend i{ display:inline-block; width:10px; height:10px; border-radius:2px; margin-right:5px; vertical-align:-1px; }
+  .h2h-controls{ display:grid; grid-template-columns:1fr auto 1fr; gap:8px; align-items:center; margin-bottom:12px; }
+  .h2h-controls select{ margin:0; width:100%; }
+  .h2h-vs{ color:var(--muted); font-size:12px; }
+  .h2h-head{ display:grid; grid-template-columns:1fr 1.3fr 1fr; text-align:center; font-family:'Oswald',sans-serif; font-size:16px; margin-bottom:6px; }
+  .h2h-row{ display:grid; grid-template-columns:1fr 1.3fr 1fr; align-items:center; padding:9px 4px; border-bottom:1px solid var(--line); font-size:13px; text-align:center; }
+  .h2h-row:last-child{ border-bottom:none; }
+  .h2h-row .lbl{ color:var(--muted); font-size:11px; text-transform:uppercase; letter-spacing:.5px; }
+  .h2h-row .win{ color:var(--yellow); font-weight:700; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div id="nav-backdrop" onclick="toggleSidebar(false)"></div>
+  <nav id="tabs">
+    <div class="brand"><span class="bm">F1</span><span>F1 Dashboard</span></div>
+    <div class="nav-label">Timing</div>
+    <button data-tab="overview" data-title="Overview" class="active"><span class="ni">🏠</span>Overview</button>
+    <button data-tab="live" data-title="Live Timing"><span class="ni">📡</span>Live Timing<span class="live-dot" id="nav-live-dot"></span></button>
+    <div class="nav-label">Season</div>
+    <button data-tab="calendar" data-title="Calendar"><span class="ni">📅</span>Calendar</button>
+    <button data-tab="race" data-title="Race Center"><span class="ni">🏁</span>Race Center</button>
+    <button data-tab="drivers" data-title="Drivers"><span class="ni">👤</span>Drivers</button>
+    <button data-tab="constructors" data-title="Constructors"><span class="ni">🛠️</span>Constructors</button>
+    <button data-tab="circuits" data-title="Circuits"><span class="ni">🗺️</span>Circuits</button>
+    <div class="nav-label">Analysis</div>
+    <button data-tab="stats" data-title="Stats"><span class="ni">📊</span>Stats</button>
+    <div class="nav-label">Junior series</div>
+    <button data-tab="f2" data-title="Formula 2"><span class="ni">2️⃣</span>F2</button>
+    <button data-tab="f3" data-title="Formula 3"><span class="ni">3️⃣</span>F3</button>
+    <div id="nav-indicator"></div>
+  </nav>
+  <header class="topbar">
+    <button class="hamburger" onclick="toggleSidebar()" aria-label="เมนู">☰</button>
+    <h1 class="page-title" id="page-title">Overview</h1>
+    <select id="season-select" onchange="changeSeason(this.value)">
+      <option value="current">Current Season</option>
+      <option value="2027">2027 Season</option>
+      <option value="2025">2025 Season</option>
+      <option value="2024">2024 Season</option>
+    </select>
+  </header>
+  <div class="hint">ฤดูกาลที่เลือกมุมขวาบนใช้กับ Calendar / Race Center / Drivers / Constructors / Circuits / Stats / F2 / F3 (Overview และ Live ใช้ฤดูกาลปัจจุบันเสมอ)</div>
+
+  <div class="site-banner" id="site-banner" role="status"></div>
+
+  <!-- OVERVIEW -->
+  <section class="tab-panel active" id="tab-overview">
+    <div class="hero">
+      <button class="refresh-btn" id="refresh-btn" onclick="refreshAll()"><span class="ic">↻</span> Refresh</button>
+      <div class="hero-eyebrow">NEXT RACE</div>
+      <h1 id="next-race-name">กำลังโหลด...</h1>
+      <div class="circuit" id="next-race-circuit"></div>
+      <div class="season-prog" id="season-prog"></div>
+      <div class="countdown">
+        <div><div class="cd-num" id="cd-days">--</div><div class="cd-label">Days</div></div>
+        <div><div class="cd-num" id="cd-hours">--</div><div class="cd-label">Hours</div></div>
+        <div><div class="cd-num" id="cd-mins">--</div><div class="cd-label">Mins</div></div>
+        <div><div class="cd-num" id="cd-secs">--</div><div class="cd-label">Secs</div></div>
+      </div>
+      <div class="weekend" id="weekend-schedule"></div>
+      <button class="ics-btn" id="ics-btn" style="display:none" onclick="downloadICS()">📅 เพิ่มลงปฏิทิน (.ics)</button>
+      <div class="wx" id="hero-weather"></div>
+    </div>
+    <div class="panel" id="news-panel" style="display:none">
+      <h2>ข่าวและสถิติล่าสุด <span>จากผู้ดูแลเว็บ</span></h2>
+      <div id="news-list"></div>
+    </div>
+    <div class="grid">
+      <div>
+        <div class="panel">
+          <h2>Driver Standings <span id="season-tag"></span></h2>
+          <table id="driver-table">
+            <thead><tr><th></th><th>Driver</th><th>Team</th><th style="text-align:right">Pts</th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+        <div class="panel">
+          <h2>Constructor Standings</h2>
+          <table id="constructor-table">
+            <thead><tr><th></th><th>Team</th><th style="text-align:right">Pts</th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+      <div class="panel">
+        <h2>Last Race Result <span id="last-race-tag"></span></h2>
+        <table id="results-table">
+          <thead><tr><th></th><th>Driver</th><th style="text-align:right">Time/Gap</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- CALENDAR -->
+  <section class="tab-panel" id="tab-calendar">
+    <div class="panel">
+      <h2>Full Season Calendar <span id="calendar-season"></span></h2>
+      <table id="calendar-table">
+        <thead><tr><th>Rd</th><th>Grand Prix</th><th>Circuit</th><th>เวลาแข่ง (เวลาของคุณ)</th><th>Status</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- RACE CENTER -->
+  <section class="tab-panel" id="tab-race">
+    <div class="panel">
+      <h2>Race Center</h2>
+      <select id="race-select" style="margin-left:0;width:100%;margin-bottom:16px"><option>กำลังโหลดรายการเรซ...</option></select>
+      <div id="race-detail">
+        <h3 style="margin:0 0 8px;font-size:14px;color:var(--muted)">Race Result</h3>
+        <table id="race-results-table">
+          <thead><tr><th></th><th>Driver</th><th>Team</th><th style="text-align:right">Time/Gap</th></tr></thead>
+          <tbody></tbody>
+        </table>
+        <h3 style="margin:18px 0 8px;font-size:14px;color:var(--muted)">Qualifying</h3>
+        <table id="race-quali-table">
+          <thead><tr><th></th><th>Driver</th><th>Q1</th><th>Q2</th><th>Q3</th></tr></thead>
+          <tbody></tbody>
+        </table>
+        <div id="sprint-block" style="display:none">
+          <h3 style="margin:18px 0 8px;font-size:14px;color:var(--muted)">Sprint Result</h3>
+          <table id="race-sprint-table">
+            <thead><tr><th></th><th>Driver</th><th>Team</th><th>Time/Gap</th><th style="text-align:right">Pts</th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+        <h3 style="margin:18px 0 8px;font-size:14px;color:var(--muted)">Fastest Pit Stops (Top 10)</h3>
+        <table id="race-pit-table">
+          <thead><tr><th></th><th>Driver</th><th>Lap</th><th>Stop</th><th style="text-align:right">Time</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- DRIVERS -->
+  <section class="tab-panel" id="tab-drivers">
+    <div class="panel">
+      <h2>Drivers <span id="drivers-season"></span></h2>
+      <input class="search-input" id="driver-search" placeholder="🔍 ค้นหานักแข่ง / ทีม / เบอร์..." oninput="renderDriverCards()">
+      <div class="cards" id="drivers-cards"></div>
+    </div>
+  </section>
+
+  <!-- CONSTRUCTORS -->
+  <section class="tab-panel" id="tab-constructors">
+    <div class="panel">
+      <h2>Constructors <span id="constructors-season"></span></h2>
+      <div class="cards" id="constructors-cards"></div>
+    </div>
+  </section>
+
+  <!-- CIRCUITS -->
+  <section class="tab-panel" id="tab-circuits">
+    <div class="panel">
+      <h2>Circuits This Season</h2>
+      <div class="cards" id="circuits-cards"></div>
+    </div>
+  </section>
+
+  <!-- STATS -->
+  <section class="tab-panel" id="tab-stats">
+    <div class="panel">
+      <h2>Championship Status <span id="stats-season"></span></h2>
+      <div id="champ-status"><div class="loading">กำลังโหลด...</div></div>
+    </div>
+    <div class="panel">
+      <h2>Points Progression <span>Top 6 · แต้มสะสมต่อรอบ</span></h2>
+      <div id="progress-chart"><div class="loading">กำลังโหลดกราฟ...</div></div>
+      <div class="chart-legend" id="progress-legend"></div>
+      <p class="champ-note" style="margin-top:10px">คำนวณจากผลเรซ + สปรินต์ของแต่ละคน อาจต่างจากตารางทางการเล็กน้อยหากมีการปรับโทษย้อนหลัง</p>
+    </div>
+    <div class="panel">
+      <h2>Consistency <span>ความสม่ำเสมอของผลการแข่ง</span></h2>
+      <table id="consistency-table">
+        <thead><tr><th></th><th>Driver</th><th style="text-align:right">เฉลี่ย</th><th style="text-align:right">σ</th><th style="text-align:right">เข้าแต้ม</th><th style="text-align:right">DNF</th></tr></thead>
+        <tbody><tr><td colspan="6" class="loading">กำลังโหลด...</td></tr></tbody>
+      </table>
+      <p class="champ-note" style="margin-top:10px">เฉลี่ย = อันดับที่จบเฉลี่ย (เฉพาะเรซที่จบ) · σ = ความแกว่งของอันดับ ยิ่งต่ำยิ่งนิ่ง · เรียงจากนิ่งที่สุด (ต้องจบอย่างน้อย 3 เรซ)</p>
+    </div>
+    <div class="panel">
+      <h2>Head-to-Head</h2>
+      <div class="h2h-controls">
+        <select id="h2h-a"></select><span class="h2h-vs">VS</span><select id="h2h-b"></select>
+      </div>
+      <div id="h2h-result"><div class="loading">เลือกนักแข่งสองคนเพื่อเปรียบเทียบ</div></div>
+    </div>
+  </section>
+
+  <!-- LIVE TIMING -->
+  <section class="tab-panel" id="tab-live">
+    <div class="live-card">
+      <div id="live-badge-wrap"></div>
+      <div class="live-status" id="live-status">กำลังโหลดตารางเซสชัน...</div>
+      <div class="live-sub" id="live-sub"></div>
+      <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:16px;">
+        <a class="btn-primary" href="https://formula-timer.com/livetiming" target="_blank" rel="noopener">📡 เปิด Live Timing ↗</a>
+        <button class="btn-ghost" id="live-embed-btn" onclick="toggleLiveEmbed()">ฝังไว้ในหน้านี้</button>
+      </div>
+      <p class="live-sub" style="margin-top:14px;">ตารางลำดับสด เวลาต่อรอบ ยาง และ team radio ให้บริการโดย Formula-Timer (เว็บอิสระ ไม่เกี่ยวข้องกับ F1/FIA) ถ้ากด "ฝังไว้ในหน้านี้" แล้วเฟรมว่าง แปลว่าเว็บนั้นไม่อนุญาตให้ฝัง ให้ใช้ปุ่มเปิดแท็บใหม่แทน</p>
+      <div id="live-embed"></div>
+    </div>
+    <div class="panel">
+      <h2>เซสชันที่จะถึง <span>เวลาของคุณ</span></h2>
+      <div id="live-upcoming"><div class="loading">กำลังโหลด...</div></div>
+    </div>
+  </section>
+
+  <!-- F2 -->
+  <section class="tab-panel" id="tab-f2">
+    <div class="panel">
+      <h2>FIA Formula 2 Championship <span id="f2-year"></span>
+        <span><a href="https://www.fiaformula2.com/" target="_blank" rel="noopener" style="color:var(--yellow)">official site ↗</a></span>
+      </h2>
+      <p style="font-size:11px;color:var(--muted);margin:-6px 0 14px;">ดึงตารางคะแนนจากหน้า Wikipedia ของฤดูกาลนี้ อาจอัปเดตช้ากว่าสนามจริงเล็กน้อย</p>
+      <table id="f2-table">
+        <thead><tr><th></th><th>Driver</th><th style="text-align:right">Pts</th></tr></thead>
+        <tbody></tbody>
+      </table>
+      <div id="f2-fallback" style="display:none"></div>
+    </div>
+  </section>
+
+  <!-- F3 -->
+  <section class="tab-panel" id="tab-f3">
+    <div class="panel">
+      <h2>FIA Formula 3 Championship <span id="f3-year"></span>
+        <span><a href="https://www.fiaformula3.com/" target="_blank" rel="noopener" style="color:var(--yellow)">official site ↗</a></span>
+      </h2>
+      <p style="font-size:11px;color:var(--muted);margin:-6px 0 14px;">ดึงตารางคะแนนจากหน้า Wikipedia ของฤดูกาลนี้ อาจอัปเดตช้ากว่าสนามจริงเล็กน้อย</p>
+      <table id="f3-table">
+        <thead><tr><th></th><th>Driver</th><th style="text-align:right">Pts</th></tr></thead>
+        <tbody></tbody>
+      </table>
+      <div id="f3-fallback" style="display:none"></div>
+    </div>
+  </section>
+
+  <footer>Data via Jolpica F1 API (Ergast-compatible) · api.jolpi.ca</footer>
+
+  <!-- DRIVER PROFILE MODAL -->
+  <div class="modal-overlay" id="driver-modal" onclick="if(event.target===this) closeDriverModal()">
+    <div class="modal-card">
+      <button class="modal-close" onclick="closeDriverModal()">✕</button>
+      <div id="driver-modal-header"></div>
+      <h3 class="modal-subhead">ผลการแข่งขันฤดูกาลนี้</h3>
+      <table id="driver-modal-table">
+        <thead><tr><th>Rd</th><th>Grand Prix</th><th>กริด</th><th>จบ</th><th style="text-align:right">Pts</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </div>
+  <!-- TEAM MODAL -->
+  <div class="modal-overlay" id="team-modal" onclick="if(event.target===this) closeTeamModal()">
+    <div class="modal-card">
+      <button class="modal-close" onclick="closeTeamModal()">✕</button>
+      <div id="team-modal-header"></div>
+      <h3 class="modal-subhead">ผลการแข่งขันฤดูกาลนี้</h3>
+      <table id="team-modal-table">
+        <thead><tr><th>Rd</th><th>Grand Prix</th><th>ผลของนักแข่ง</th><th style="text-align:right">Pts</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- CIRCUIT DETAIL MODAL -->
+  <div class="modal-overlay" id="circuit-modal" onclick="if(event.target===this) closeCircuitModal()">
+    <div class="modal-card">
+      <button class="modal-close" onclick="closeCircuitModal()">✕</button>
+      <div id="circuit-modal-header"></div>
+      <div class="circuit-stats" id="circuit-modal-stats"></div>
+      <div class="wx" id="circuit-weather"></div>
+      <p class="modal-bio" id="circuit-modal-bio"></p>
+    </div>
+  </div>
+</div>
+
+<script src="config.js"></script>
+<script>
+const API = "https://api.jolpi.ca/ergast/f1";
+let highlightTeam = "red bull";
+const isRedBull = (name) => (name || "").toLowerCase().includes(highlightTeam);
+const loaded = {};
+let season = 'current';
+
+/* ---------------- MEDALS + FLAGS ---------------- */
+function posMedal(pos){
+  const p = String(pos);
+  if(p === '1') return '🥇';
+  if(p === '2') return '🥈';
+  if(p === '3') return '🥉';
+  return p;
+}
+const FLAGS = {
+  British:'gb', Dutch:'nl', Mexican:'mx', Monegasque:'mc', Spanish:'es', French:'fr',
+  German:'de', Italian:'it', Finnish:'fi', Australian:'au', Canadian:'ca', Japanese:'jp',
+  Thai:'th', Chinese:'cn', Danish:'dk', American:'us', Brazilian:'br', Austrian:'at',
+  Belgian:'be', Argentine:'ar', 'New Zealander':'nz', Polish:'pl', Russian:'ru', Swiss:'ch'
+};
+const flag = (nat) => FLAGS[nat] ? `<span class="fi fi-${FLAGS[nat]}"></span>` : '🏁';
+/* ---------------- TOAST ---------------- */
+function showToast(msg){
+  const t = document.createElement('div');
+  t.className = 'toast';
+  t.innerHTML = `<span class="dot"></span>${msg}`;
+  document.body.appendChild(t);
+  setTimeout(()=>{ t.classList.add('out'); setTimeout(()=>t.remove(), 300); }, 1800);
+}
+/* ---------------- STICKY NAV SHADOW ---------------- */
+window.addEventListener('scroll', ()=>{
+  document.getElementById('tabs').classList.toggle('scrolled', window.scrollY > 4);
+});
+
+/* ---------------- SKELETONS ---------------- */
+function skeletonRows(sel, cols, rows=5){
+  const tds = Array.from({length:cols}).map((_,i)=>`<td style="width:${i===0?'24px':'auto'}"><span class="skeleton" style="width:${40+Math.random()*50}%"></span></td>`).join("");
+  document.querySelector(sel).innerHTML = Array.from({length:rows}).map(()=>`<tr>${tds}</tr>`).join("");
+}
+function skeletonCards(sel, n=8){
+  document.getElementById(sel).innerHTML = Array.from({length:n}).map(()=>
+    `<div class="card"><span class="skeleton" style="width:40%;margin-bottom:10px"></span><span class="skeleton" style="width:70%;margin-bottom:6px"></span><span class="skeleton" style="width:55%"></span></div>`
+  ).join("");
+}
+
+async function getJSON(url){
+  const res = await fetch(url);
+  if(!res.ok) throw new Error("Request failed: " + url);
+  return res.json();
+}
+function showError(sel, msg){
+  document.querySelector(sel).innerHTML = `<tr><td colspan="5" class="error">โหลดข้อมูลไม่สำเร็จ: ${msg}</td></tr>`;
+}
+
+/* ---------------- NAV + TABS ---------------- */
+function moveIndicator(btn){
+  const ind = document.getElementById('nav-indicator');
+  if(!btn) return;
+  ind.style.top = btn.offsetTop + 'px';
+  ind.style.height = btn.offsetHeight + 'px';
+}
+function toggleSidebar(force){
+  const open = typeof force === 'boolean' ? force : !document.getElementById('tabs').classList.contains('open');
+  document.getElementById('tabs').classList.toggle('open', open);
+  document.getElementById('nav-backdrop').classList.toggle('show', open);
+}
+document.getElementById('tabs').addEventListener('click', (e)=>{
+  const btn = e.target.closest('button[data-tab]');
+  if(!btn) return;
+  document.querySelectorAll('nav button').forEach(b=>b.classList.remove('active'));
+  document.querySelectorAll('.tab-panel').forEach(p=>p.classList.remove('active'));
+  btn.classList.add('active');
+  moveIndicator(btn);
+  const id = btn.dataset.tab;
+  document.getElementById('tab-'+id).classList.add('active');
+  document.getElementById('page-title').textContent = btn.dataset.title || btn.textContent.trim();
+  toggleSidebar(false);
+  window.scrollTo({ top:0 });
+  loadTab(id);
+  sendHit(id);
+});
+window.addEventListener('load', ()=> moveIndicator(document.querySelector('nav button.active')));
+window.addEventListener('resize', ()=> moveIndicator(document.querySelector('nav button.active')));
+
+function changeSeason(val){
+  season = val;
+  ['calendar','race','drivers','constructors','circuits','stats','f2','f3'].forEach(k=>delete loaded[k]);
+  const activeTab = document.querySelector('nav button.active');
+  if(activeTab) loadTab(activeTab.dataset.tab);
+}
+function loadTab(id){
+  if(loaded[id]) return;
+  loaded[id] = true;
+  if(id === 'calendar') loadCalendar();
+  if(id === 'race') loadRaceCenter();
+  if(id === 'drivers') loadDrivers();
+  if(id === 'constructors') loadConstructors();
+  if(id === 'circuits') loadCircuits();
+  if(id === 'stats') loadStats();
+  if(id === 'live') updateLive();
+  if(id === 'f2') loadFeederSeries('f2');
+  if(id === 'f3') loadFeederSeries('f3');
+}
+
+/* ---------------- OVERVIEW ---------------- */
+async function loadDriverStandings(){
+  skeletonRows('#driver-table tbody', 4, 6);
+  try{
+    const data = await getJSON(`${API}/current/driverStandings.json`);
+    const list = data.MRData.StandingsTable.StandingsLists[0];
+    document.getElementById('season-tag').textContent = list.season;
+    const max = Math.max(...list.DriverStandings.map(d=>+d.points), 1);
+    const prevPos = await prevStandingPositions('driverStandings', 'DriverStandings', d => d.Driver.driverId, +list.round);
+    document.querySelector('#driver-table tbody').innerHTML = list.DriverStandings.map((d,i)=>{
+      const team = d.Constructors[0].name;
+      const pct = Math.round((+d.points/max)*100);
+      return `<tr class="row-in ${isRedBull(team)?'row-rb':''}" style="animation-delay:${i*30}ms">
+        <td class="pos">${posMedal(d.position)}</td>
+        <td class="driver-name">${isFav(d.Driver.driverId)?'⭐ ':''}${flag(d.Driver.nationality)} ${d.Driver.givenName} ${d.Driver.familyName}${evoTag(prevPos[d.Driver.driverId], +d.position)}</td>
+        <td class="team-tag">${team}</td>
+        <td class="pts">${d.points}${gapTag(max, +d.points)}<div class="ptsbar"><div class="ptsbar-fill" style="width:${pct}%"></div></div></td></tr>`;
+    }).join("");
+  }catch(e){ showError('#driver-table tbody', e.message); }
+}
+async function loadConstructorStandings(){
+  skeletonRows('#constructor-table tbody', 3, 5);
+  try{
+    const data = await getJSON(`${API}/current/constructorStandings.json`);
+    const list = data.MRData.StandingsTable.StandingsLists[0];
+    const max = Math.max(...list.ConstructorStandings.map(c=>+c.points), 1);
+    const prevPos = await prevStandingPositions('constructorStandings', 'ConstructorStandings', c => c.Constructor.constructorId, +list.round);
+    document.querySelector('#constructor-table tbody').innerHTML = list.ConstructorStandings.map((c,i)=>{
+      const pct = Math.round((+c.points/max)*100);
+      return `<tr class="row-in ${isRedBull(c.Constructor.name)?'row-rb':''}" style="animation-delay:${i*30}ms">
+      <td class="pos">${c.position}</td>
+      <td class="team-name">${c.Constructor.name}${evoTag(prevPos[c.Constructor.constructorId], +c.position)}</td>
+      <td class="pts">${c.points}${gapTag(max, +c.points)}<div class="ptsbar"><div class="ptsbar-fill" style="width:${pct}%"></div></div></td></tr>`;
+    }).join("");
+  }catch(e){ showError('#constructor-table tbody', e.message); }
+}
+async function loadLastResults(){
+  skeletonRows('#results-table tbody', 3, 6);
+  try{
+    const data = await getJSON(`${API}/current/last/results.json`);
+    const race = data.MRData.RaceTable.Races[0];
+    document.getElementById('last-race-tag').textContent = race ? race.raceName : "";
+    document.querySelector('#results-table tbody').innerHTML = race.Results.slice(0,10).map((r,i)=>{
+      const gap = r.Time ? r.Time.time : (r.status || "-");
+      return `<tr class="row-in ${isRedBull(r.Constructor.name)?'row-rb':''}" style="animation-delay:${i*30}ms">
+        <td class="pos">${posMedal(r.position)}</td>
+        <td class="driver-name">${flag(r.Driver.nationality)} ${r.Driver.givenName} ${r.Driver.familyName}</td>
+        <td class="pts" style="color:var(--muted);font-weight:400;">${gap}</td></tr>`;
+    }).join("");
+  }catch(e){ showError('#results-table tbody', e.message); }
+}
+let countdownTimer = null;
+async function loadNextRace(){
+  try{
+    const data = await getJSON(`${API}/current.json`);
+    const races = data.MRData.RaceTable.Races;
+    const now = new Date();
+    const next = races.find(r => new Date(`${r.date}T${r.time||'00:00:00Z'}`) > now) || races[races.length-1];
+    document.getElementById('next-race-name').textContent = next.raceName;
+    document.getElementById('next-race-circuit').textContent =
+      `${next.Circuit.circuitName} · ${next.Circuit.Location.locality}, ${next.Circuit.Location.country} · Round ${next.round}`;
+    allRaces = races;
+    const doneCount = races.filter(r => new Date(`${r.date}T${r.time||'00:00:00Z'}`) < now).length;
+    const pctDone = (doneCount / races.length * 100).toFixed(1);
+    document.getElementById('season-prog').innerHTML =
+      `ฤดูกาลผ่านไป <b style="color:var(--text)">${pctDone}%</b> · ${doneCount}/${races.length} สนาม<div class="sp-bar"><div class="sp-fill" style="width:${pctDone}%"></div></div>`;
+    renderWeekend(next);
+    registerGeo(next);
+    showWeather('hero-weather', circuitGeo[next.Circuit.circuitId]);
+    const target = new Date(`${next.date}T${next.time||'00:00:00Z'}`);
+    if(countdownTimer) clearInterval(countdownTimer);
+    countdownTimer = setInterval(()=>tickCountdown(target), 1000);
+    tickCountdown(target);
+  }catch(e){ document.getElementById('next-race-name').textContent = "โหลดข้อมูลไม่สำเร็จ"; }
+}
+function tickCountdown(target){
+  const diff = target - new Date();
+  if(diff <= 0){ ['cd-days','cd-hours','cd-mins','cd-secs'].forEach(id=>document.getElementById(id).textContent="0"); return; }
+  const vals = {
+    'cd-days': Math.floor(diff/86400000),
+    'cd-hours': String(Math.floor((diff%86400000)/3600000)).padStart(2,'0'),
+    'cd-mins': String(Math.floor((diff%3600000)/60000)).padStart(2,'0'),
+    'cd-secs': String(Math.floor((diff%60000)/1000)).padStart(2,'0')
+  };
+  Object.entries(vals).forEach(([id,v])=>{
+    const el = document.getElementById(id);
+    if(el.textContent !== String(v)){
+      el.textContent = v;
+      if(id === 'cd-secs'){ el.classList.remove('tick'); void el.offsetWidth; el.classList.add('tick'); }
+    }
+  });
+}
+function refreshAll(){
+  const btn = document.getElementById('refresh-btn');
+  btn.classList.add('spinning');
+  setTimeout(()=>btn.classList.remove('spinning'), 650);
+  loadNextRace(); loadDriverStandings(); loadConstructorStandings(); loadLastResults();
+  Object.keys(loaded).forEach(k=>delete loaded[k]);
+  const activeTab = document.querySelector('nav button.active');
+  if(activeTab && activeTab.dataset.tab !== 'overview') loadTab(activeTab.dataset.tab);
+  showToast('อัปเดตข้อมูลล่าสุดแล้ว');
+}
+
+/* ---------------- CALENDAR ---------------- */
+async function loadCalendar(){
+  skeletonRows('#calendar-table tbody', 5, 8);
+  try{
+    const data = await getJSON(`${API}/${season}.json`);
+    const races = data.MRData.RaceTable.Races;
+    document.getElementById('calendar-season').textContent = data.MRData.RaceTable.season;
+    if(!races.length){
+      document.querySelector('#calendar-table tbody').innerHTML = '<tr><td colspan="5" class="loading">ยังไม่มีปฏิทินประกาศสำหรับฤดูกาลนี้</td></tr>';
+      return;
+    }
+    const now = new Date();
+    let nextFound = false;
+    document.querySelector('#calendar-table tbody').innerHTML = races.map((r,i)=>{
+      const raceDate = new Date(`${r.date}T${r.time||'00:00:00Z'}`);
+      let status;
+      if(raceDate < now){ status = '<span class="status-done">✓ Completed</span>'; }
+      else if(!nextFound){ status = '<span class="status-next">● Next</span>'; nextFound = true; }
+      else{ status = '<span class="status-upcoming">Upcoming</span>'; }
+      const c = r.Circuit;
+      registerGeo(r);
+      return `<tr class="row-in row-clickable" style="animation-delay:${i*20}ms"
+        onclick='openCircuitModal(${JSON.stringify(c.circuitId)}, ${JSON.stringify(c.circuitName)}, ${JSON.stringify(c.Location.locality)}, ${JSON.stringify(c.Location.country)}, ${JSON.stringify(r.raceName)})'>
+        <td class="pos">${r.round}</td>
+        <td class="driver-name">${r.raceName}</td>
+        <td class="team-tag">${c.circuitName}, ${c.Location.country}</td>
+        <td>${fmtRaceLocal(r)}</td>
+        <td>${status}</td></tr>`;
+    }).join("");
+  }catch(e){ showError('#calendar-table tbody', e.message); }
+}
+
+/* ---------------- RACE CENTER ---------------- */
+async function loadRaceCenter(){
+  try{
+    const data = await getJSON(`${API}/${season}.json`);
+    const races = data.MRData.RaceTable.Races;
+    const sel = document.getElementById('race-select');
+    if(!races.length){
+      sel.innerHTML = '<option>ยังไม่มีปฏิทินสำหรับฤดูกาลนี้</option>';
+      document.querySelector('#race-results-table tbody').innerHTML = '<tr><td colspan="4" class="loading">ยังไม่มีข้อมูล</td></tr>';
+      document.querySelector('#race-quali-table tbody').innerHTML = '<tr><td colspan="5" class="loading">ยังไม่มีข้อมูล</td></tr>';
+      return;
+    }
+    const now = new Date();
+    const past = races.filter(r => new Date(`${r.date}T${r.time||'00:00:00Z'}`) < now);
+    sel.innerHTML = races.map(r=>`<option value="${r.round}">Rd ${r.round} — ${r.raceName}</option>`).join("");
+    const defaultRound = past.length ? past[past.length-1].round : races[0].round;
+    sel.value = defaultRound;
+    sel.onchange = ()=>loadRaceDetail(sel.value);
+    loadRaceDetail(defaultRound);
+  }catch(e){ showError('#race-results-table tbody', e.message); }
+}
+async function loadRaceDetail(round){
+  skeletonRows('#race-results-table tbody', 4, 6);
+  skeletonRows('#race-quali-table tbody', 5, 6);
+  skeletonRows('#race-pit-table tbody', 5, 4);
+  document.getElementById('sprint-block').style.display = 'none';
+  const raceNames = {};
+  try{
+    const data = await getJSON(`${API}/${season}/${round}/results.json`);
+    const race = data.MRData.RaceTable.Races[0];
+    if(!race){ document.querySelector('#race-results-table tbody').innerHTML = '<tr><td colspan="4" class="loading">ยังไม่มีผลการแข่ง (เรซยังไม่เริ่ม)</td></tr>'; }
+    else{
+      race.Results.forEach(r=>{ raceNames[r.Driver.driverId] = `${r.Driver.givenName} ${r.Driver.familyName}`; });
+      document.querySelector('#race-results-table tbody').innerHTML = race.Results.map((r,i)=>{
+        const gap = r.Time ? r.Time.time : (r.status || "-");
+        return `<tr class="row-in ${isRedBull(r.Constructor.name)?'row-rb':''}" style="animation-delay:${i*25}ms">
+          <td class="pos">${posMedal(r.position)}</td>
+          <td class="driver-name">${flag(r.Driver.nationality)} ${r.Driver.givenName} ${r.Driver.familyName}</td>
+          <td class="team-tag">${r.Constructor.name}</td>
+          <td class="pts" style="color:var(--muted);font-weight:400;">${gap}${fastestLapTag(r)}</td></tr>`;
+      }).join("");
+    }
+  }catch(e){ showError('#race-results-table tbody', e.message); }
+  try{
+    const qdata = await getJSON(`${API}/${season}/${round}/qualifying.json`);
+    const qrace = qdata.MRData.RaceTable.Races[0];
+    if(!qrace){ document.querySelector('#race-quali-table tbody').innerHTML = '<tr><td colspan="5" class="loading">ยังไม่มีผล Qualifying</td></tr>'; }
+    else{
+      document.querySelector('#race-quali-table tbody').innerHTML = qrace.QualifyingResults.map((q,i)=>`
+        <tr class="row-in ${isRedBull(q.Constructor.name)?'row-rb':''}" style="animation-delay:${i*25}ms">
+          <td class="pos">${q.position}</td>
+          <td class="driver-name">${q.Driver.givenName} ${q.Driver.familyName}</td>
+          <td class="team-tag">${q.Q1||'-'}</td>
+          <td class="team-tag">${q.Q2||'-'}</td>
+          <td class="team-tag">${q.Q3||'-'}</td></tr>`).join("");
+    }
+  }catch(e){ showError('#race-quali-table tbody', e.message); }
+  // Sprint (only shown on sprint weekends)
+  try{
+    const sd = await getJSON(`${API}/${season}/${round}/sprint.json`);
+    const sr = sd.MRData.RaceTable.Races[0];
+    if(sr && sr.SprintResults && sr.SprintResults.length){
+      document.getElementById('sprint-block').style.display = 'block';
+      document.querySelector('#race-sprint-table tbody').innerHTML = sr.SprintResults.map((r,i)=>{
+        const gap = r.Time ? r.Time.time : (r.status || '-');
+        return `<tr class="row-in ${isRedBull(r.Constructor.name)?'row-rb':''}" style="animation-delay:${i*25}ms">
+          <td class="pos">${posMedal(r.position)}</td>
+          <td class="driver-name">${flag(r.Driver.nationality)} ${r.Driver.givenName} ${r.Driver.familyName}</td>
+          <td class="team-tag">${r.Constructor.name}</td>
+          <td class="team-tag">${gap}</td>
+          <td class="pts">${r.points}</td></tr>`;
+      }).join("");
+    }
+  }catch(e){ /* no sprint this weekend */ }
+  // Pit stops
+  const pitBody = document.querySelector('#race-pit-table tbody');
+  try{
+    const pd = await getJSON(`${API}/${season}/${round}/pitstops.json?limit=100`);
+    const prace = pd.MRData.RaceTable.Races[0];
+    const stops = prace && prace.PitStops ? prace.PitStops : [];
+    const sec = (d) => { const p = String(d).split(':'); return p.length === 2 ? (+p[0])*60 + (+p[1]) : parseFloat(d); };
+    const top = stops.filter(x=>!isNaN(sec(x.duration))).sort((a,b)=>sec(a.duration)-sec(b.duration)).slice(0,10);
+    if(!top.length){ pitBody.innerHTML = '<tr><td colspan="5" class="loading">ไม่มีข้อมูล Pit stop ของเรซนี้</td></tr>'; }
+    else{
+      pitBody.innerHTML = top.map((x,i)=>`<tr class="row-in" style="animation-delay:${i*25}ms">
+        <td class="pos">${i+1}</td>
+        <td class="driver-name">${raceNames[x.driverId] || x.driverId}</td>
+        <td class="team-tag">Lap ${x.lap}</td>
+        <td class="team-tag">Stop ${x.stop}</td>
+        <td class="pts">${x.duration}s</td></tr>`).join("");
+    }
+  }catch(e){ pitBody.innerHTML = '<tr><td colspan="5" class="loading">ไม่มีข้อมูล Pit stop ของเรซนี้</td></tr>'; }
+}
+
+/* ---------------- DRIVERS ---------------- */
+let driverCache = {};
+let driverListCache = [];
+let favorites = [];
+try{ favorites = JSON.parse(localStorage.getItem('f1fav') || '[]'); }catch(e){ favorites = []; }
+const isFav = (id) => favorites.includes(id);
+function toggleFav(id){
+  favorites = isFav(id) ? favorites.filter(x=>x!==id) : [...favorites, id];
+  try{ localStorage.setItem('f1fav', JSON.stringify(favorites)); }catch(e){}
+  renderDriverCards();
+  showToast(isFav(id) ? 'เพิ่มในรายการโปรดแล้ว ⭐' : 'เอาออกจากรายการโปรดแล้ว');
+}
+async function loadDrivers(){
+  skeletonCards('drivers-cards', 12);
+  try{
+    const standingsData = await getJSON(`${API}/${season}/driverStandings.json`);
+    const list = standingsData.MRData.StandingsTable.StandingsLists[0];
+    document.getElementById('drivers-season').textContent = list ? list.season : '';
+    const standings = list ? list.DriverStandings : [];
+    if(!standings.length){
+      document.getElementById('drivers-cards').innerHTML = '<div class="loading">ยังไม่มีรายชื่อนักแข่งประกาศสำหรับฤดูกาลนี้</div>';
+      return;
+    }
+    driverCache = {};
+    driverListCache = standings;
+    standings.forEach(s=>{
+      const d = s.Driver;
+      driverCache[d.driverId] = { name:`${d.givenName} ${d.familyName}`, team:s.Constructors[0].name, nationality:d.nationality,
+        dob:d.dateOfBirth, num:d.permanentNumber||d.code||'', points:s.points, position:s.position };
+    });
+    renderDriverCards();
+  }catch(e){ document.getElementById('drivers-cards').innerHTML = `<div class="error">โหลดข้อมูลไม่สำเร็จ: ${e.message}</div>`; }
+}
+function renderDriverCards(){
+  const box = document.getElementById('drivers-cards');
+  if(!driverListCache.length) return;
+  const q = (document.getElementById('driver-search').value || '').trim().toLowerCase();
+  let list = driverListCache.filter(s=>{
+    if(!q) return true;
+    const d = s.Driver;
+    return `${d.givenName} ${d.familyName} ${s.Constructors[0].name} ${d.code||''} ${d.permanentNumber||''}`.toLowerCase().includes(q);
+  });
+  list = [...list.filter(s=>isFav(s.Driver.driverId)), ...list.filter(s=>!isFav(s.Driver.driverId))];
+  if(!list.length){ box.innerHTML = '<div class="loading">ไม่พบนักแข่งที่ค้นหา</div>'; return; }
+  box.innerHTML = list.map((s,i)=>{
+    const d = s.Driver, team = s.Constructors[0].name, fav = isFav(d.driverId);
+    return `<div class="card clickable ${isRedBull(team)?'rb':''}" style="animation-delay:${Math.min(i,12)*25}ms" onclick="openDriverModal('${d.driverId}')">
+      <div class="num">${d.permanentNumber||''}</div>
+      <div class="name">${flag(d.nationality)} ${d.givenName} ${d.familyName}</div>
+      <div class="meta">${team}</div>
+      <div class="meta">${d.nationality} · เกิด ${d.dateOfBirth}</div>
+      <div class="meta">อันดับ ${posMedal(s.position)} · ${s.points} pts</div>
+      <button class="fav-btn ${fav?'on':''}" onclick="event.stopPropagation();toggleFav('${d.driverId}')" aria-label="รายการโปรด">${fav?'★':'☆'}</button>
+    </div>`;
+  }).join("");
+}
+
+/* ---------------- DRIVER MODAL ---------------- */
+function closeDriverModal(){
+  document.getElementById('driver-modal').classList.remove('open');
+}
+document.addEventListener('keydown', (e)=>{ if(e.key === 'Escape'){ closeDriverModal(); closeCircuitModal(); closeTeamModal(); } });
+
+async function openDriverModal(driverId){
+  const info = driverCache[driverId];
+  const overlay = document.getElementById('driver-modal');
+  const header = document.getElementById('driver-modal-header');
+  const tbody = document.querySelector('#driver-modal-table tbody');
+  if(info){
+    header.innerHTML = `
+      <div class="modal-head-flex">
+        <img class="modal-photo" id="driver-modal-photo" style="display:none" alt="${info.name}">
+        <div class="modal-photo-ph" id="driver-modal-photo-ph">${flag(info.nationality)}</div>
+        <div style="flex:1">
+          <div class="modal-head-name">${info.name}<span class="modal-head-num">#${info.num||'-'}</span></div>
+          <div class="modal-head-meta">
+            <span>${info.team}</span><span>${flag(info.nationality)} ${info.nationality}</span><span>เกิด ${info.dob}</span>
+            <span>อันดับที่ ${posMedal(info.position)}</span><span>${info.points} pts (ฤดูกาลนี้)</span>
+          </div>
+          <p class="modal-bio" id="driver-modal-bio">กำลังโหลดประวัติ...</p>
+        </div>
+      </div>`;
+    loadDriverPhotoBio(info.name, driverId);
+  }else{
+    header.innerHTML = `<div class="loading">กำลังโหลด...</div>`;
+  }
+  tbody.innerHTML = '<tr><td colspan="5" class="loading">กำลังโหลดผลการแข่งขัน...</td></tr>';
+  overlay.classList.add('open');
+  try{
+    const data = await getJSON(`${API}/${season}/drivers/${driverId}/results.json?limit=40`);
+    const races = data.MRData.RaceTable.Races;
+    if(!races.length){
+      tbody.innerHTML = '<tr><td colspan="5" class="loading">ยังไม่มีผลการแข่งขันในฤดูกาลนี้</td></tr>';
+      return;
+    }
+    tbody.innerHTML = races.map(r=>{
+      const res = r.Results[0];
+      return `<tr>
+        <td class="pos">${r.round}</td>
+        <td class="driver-name">${r.raceName}</td>
+        <td class="team-tag">${res.grid}</td>
+        <td class="team-tag">${posMedal(res.position)}${res.status && !res.status.includes('Finished') && !res.status.includes('Lap') ? ' <span style="color:var(--muted)">('+res.status+')</span>' : ''}</td>
+        <td class="pts">${res.points}</td></tr>`;
+    }).join("");
+  }catch(e){
+    tbody.innerHTML = `<tr><td colspan="5" class="error">โหลดข้อมูลไม่สำเร็จ: ${e.message}</td></tr>`;
+  }
+}
+
+async function fetchWikiSummary(title){
+  const candidates = [title, `${title} (racing driver)`, `${title} Jr.`, `${title} (racer)`];
+  for(const t of candidates){
+    try{
+      const res = await fetch(`https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(t.replace(/ /g,'_'))}`);
+      if(!res.ok) continue;
+      const data = await res.json();
+      if(data.type !== 'disambiguation') return data;
+    }catch(e){ /* try next candidate */ }
+  }
+  return null;
+}
+
+async function loadDriverPhotoBio(name, driverId){
+  const img = document.getElementById('driver-modal-photo');
+  const ph = document.getElementById('driver-modal-photo-ph');
+  const bioEl = document.getElementById('driver-modal-bio');
+  try{
+    // 1) English summary — reliable source for the photo, and resolves disambiguation (e.g. Sainz Jr.)
+    const enData = await fetchWikiSummary(name);
+    if(!enData) throw new Error('not found');
+    const resolvedTitle = enData.title || name;
+    if(enData.thumbnail && enData.thumbnail.source){
+      img.src = enData.thumbnail.source;
+      img.onload = ()=>{ img.style.display='block'; ph.style.display='none'; };
+    }
+    // 2) Find the Thai-language equivalent of the RESOLVED title, then fetch the Thai summary
+    const llUrl = `https://en.wikipedia.org/w/api.php?origin=*&action=query&prop=langlinks&lllang=th&titles=${encodeURIComponent(resolvedTitle)}&format=json`;
+    const llRes = await fetch(llUrl);
+    const llData = await llRes.json();
+    const pages = llData.query && llData.query.pages;
+    const page = pages && Object.values(pages)[0];
+    const thTitle = page && page.langlinks && page.langlinks[0] && page.langlinks[0]['*'];
+    if(thTitle){
+      const thRes = await fetch(`https://th.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(thTitle.replace(/ /g,'_'))}`);
+      if(thRes.ok){
+        const thData = await thRes.json();
+        bioEl.textContent = thData.extract || enData.extract || 'ไม่มีข้อมูลประวัติ';
+        return;
+      }
+    }
+    bioEl.textContent = (enData.extract ? 'ยังไม่มีบทความภาษาไทย (แสดงจากภาษาอังกฤษ): ' + enData.extract : 'ไม่มีข้อมูลประวัติ');
+  }catch(e){
+    bioEl.textContent = 'ไม่พบข้อมูลประวัติเพิ่มเติม';
+  }
+}
+
+/* ---------------- CONSTRUCTORS ---------------- */
+let teamCache = {};
+async function loadConstructors(){
+  skeletonCards('constructors-cards', 6);
+  try{
+    const [consData, standingsData, drvData] = await Promise.all([
+      getJSON(`${API}/${season}/constructors.json`),
+      getJSON(`${API}/${season}/constructorStandings.json`).catch(()=>null),
+      getJSON(`${API}/${season}/driverStandings.json`).catch(()=>null)
+    ]);
+    document.getElementById('constructors-season').textContent = consData.MRData.ConstructorTable.season || '';
+    const sl = standingsData && standingsData.MRData.StandingsTable.StandingsLists[0];
+    const info = {};
+    (sl ? sl.ConstructorStandings : []).forEach(x => info[x.Constructor.constructorId] = { points:x.points, position:x.position, wins:x.wins });
+    const dl = drvData && drvData.MRData.StandingsTable.StandingsLists[0];
+    const teamDrivers = {};
+    (dl ? dl.DriverStandings : []).forEach(x => x.Constructors.forEach(c => {
+      (teamDrivers[c.constructorId] = teamDrivers[c.constructorId] || []).push({ name:`${x.Driver.givenName} ${x.Driver.familyName}`, nat:x.Driver.nationality, points:x.points });
+    }));
+    const cons = consData.MRData.ConstructorTable.Constructors.slice();
+    if(!cons.length){
+      document.getElementById('constructors-cards').innerHTML = '<div class="loading">ยังไม่มีรายชื่อทีมประกาศสำหรับฤดูกาลนี้</div>';
+      return;
+    }
+    cons.sort((a,b)=> ((info[a.constructorId]||{}).position || 99) - ((info[b.constructorId]||{}).position || 99));
+    teamCache = {};
+    cons.forEach(c => { teamCache[c.constructorId] = Object.assign({ name:c.name, nationality:c.nationality, drivers: teamDrivers[c.constructorId] || [] }, info[c.constructorId] || {}); });
+    document.getElementById('constructors-cards').innerHTML = cons.map((c,i)=>{
+      const t = info[c.constructorId] || {};
+      return `<div class="card clickable ${isRedBull(c.name)?'rb':''}" style="animation-delay:${i*30}ms" onclick="openTeamModal('${c.constructorId}')">
+        <div class="num">${t.points ?? '-'}</div>
+        <div class="name">${c.name}</div>
+        <div class="meta">${c.nationality}</div>
+        ${t.position ? `<div class="meta">อันดับ ${posMedal(t.position)} · ชนะ ${t.wins} เรซ</div>` : ''}
+      </div>`;
+    }).join("");
+  }catch(e){ document.getElementById('constructors-cards').innerHTML = `<div class="error">โหลดข้อมูลไม่สำเร็จ: ${e.message}</div>`; }
+}
+
+/* ---------------- CIRCUITS ---------------- */
+async function loadCircuits(){
+  skeletonCards('circuits-cards', 8);
+  try{
+    const data = await getJSON(`${API}/${season}.json`);
+    const races = data.MRData.RaceTable.Races;
+    if(!races.length){
+      document.getElementById('circuits-cards').innerHTML = '<div class="loading">ยังไม่มีปฏิทินสำหรับฤดูกาลนี้</div>';
+      return;
+    }
+    document.getElementById('circuits-cards').innerHTML = races.map((r,i)=>{
+      const c = r.Circuit;
+      registerGeo(r);
+      return `<div class="card clickable" style="animation-delay:${i*30}ms"
+        onclick='openCircuitModal(${JSON.stringify(c.circuitId)}, ${JSON.stringify(c.circuitName)}, ${JSON.stringify(c.Location.locality)}, ${JSON.stringify(c.Location.country)}, ${JSON.stringify(r.raceName)})'>
+        <div class="name">${c.circuitName}</div>
+        <div class="meta">${c.Location.locality}, ${c.Location.country}</div>
+        <div class="meta">Round ${r.round} · ${r.raceName}</div>
+      </div>`;
+    }).join("");
+  }catch(e){ document.getElementById('circuits-cards').innerHTML = `<div class="error">โหลดข้อมูลไม่สำเร็จ: ${e.message}</div>`; }
+}
+
+/* ---------------- F2 / F3 (best-effort: parsed from Wikipedia's season standings table) ---------------- */
+const FEEDER_SERIES = {
+  f2: { wikiBases: ['FIA Formula 2 Championship', 'Formula 2 Championship'], official: 'https://www.fiaformula2.com/' },
+  f3: { wikiBases: ['FIA Formula 3 Championship', 'Formula 3 Championship'], official: 'https://www.fiaformula3.com/' }
+};
+async function loadFeederSeries(key){
+  const cfg = FEEDER_SERIES[key];
+  const year = season === 'current' ? new Date().getFullYear() : season;
+  document.getElementById(`${key}-year`).textContent = year;
+  const tbody = document.querySelector(`#${key}-table tbody`);
+  const fallback = document.getElementById(`${key}-fallback`);
+  tbody.innerHTML = '<tr><td colspan="3" class="loading">กำลังโหลดข้อมูลจาก Wikipedia...</td></tr>';
+  fallback.style.display = 'none';
+  await configReady;
+  const ov = siteConfig && siteConfig.overrides && siteConfig.overrides[key];
+  if(ov && String(ov.year) === String(year) && Array.isArray(ov.rows) && ov.rows.length){
+    const sorted = [...ov.rows].sort((a,b) => b.points - a.points);
+    tbody.innerHTML = sorted.map((r,i) => `<tr class="row-in" style="animation-delay:${i*20}ms"><td class="pos">${posMedal(i+1)}</td><td class="driver-name">${escHTML(r.driver)}</td><td class="pts">${r.points}</td></tr>`).join('');
+    fallback.style.display = 'block';
+    fallback.innerHTML = `<div class="loading">ข้อมูลที่ผู้ดูแลเว็บกรอกเอง · อัปเดต ${escHTML((ov.updatedAt || '').slice(0,10))}</div>`;
+    return;
+  }
+  try{
+    let data = null, usedTitle = '';
+    for(const base of cfg.wikiBases){
+      const t = `${year} ${base}`;
+      const url = `https://en.wikipedia.org/w/api.php?origin=*&action=parse&redirects=1&page=${encodeURIComponent(t)}&prop=text&format=json`;
+      const res = await fetch(url);
+      const d = await res.json();
+      if(!d.error){ data = d; usedTitle = d.parse.title; break; }
+    }
+    if(!data) throw new Error('page not found');
+    const html = data.parse.text['*'];
+    const doc = new DOMParser().parseFromString(html, 'text/html');
+    const tables = Array.from(doc.querySelectorAll('table.wikitable'));
+    let rows = [];
+    for(const table of tables){
+      const headerCells = Array.from(table.querySelectorAll('tr:first-child th')).map(th => th.textContent.trim().toLowerCase());
+      const hasDriver = headerCells.some(h => h.includes('driver'));
+      const hasPoints = headerCells.some(h => h.includes('points') || h.startsWith('pts'));
+      if(!hasDriver || !hasPoints) continue;
+      const driverColIdx = headerCells.findIndex(h => h.includes('driver'));
+      const trs = Array.from(table.querySelectorAll('tr')).slice(1);
+      const parsed = [];
+      trs.forEach(tr=>{
+        const cells = Array.from(tr.children);
+        if(cells.length < 3) return;
+        const driverCell = cells[driverColIdx];
+        if(!driverCell) return;
+        const driverName = driverCell.textContent.replace(/\[.*?\]/g,'').trim();
+        if(!driverName || /^(pos|driver)$/i.test(driverName)) return;
+        const lastCell = cells[cells.length - 1];
+        const pointsText = lastCell.textContent.replace(/\[.*?\]/g,'').trim();
+        const points = parseFloat(pointsText);
+        if(driverName && !isNaN(points)) parsed.push({ driver: driverName, points });
+      });
+      if(parsed.length >= 5){ rows = parsed; break; }
+    }
+    if(!rows.length) throw new Error('table not parsed');
+    rows.sort((a,b)=>b.points-a.points);
+    tbody.innerHTML = rows.map((r,i)=>`
+      <tr class="row-in" style="animation-delay:${i*20}ms">
+        <td class="pos">${posMedal(i+1)}</td>
+        <td class="driver-name">${r.driver}</td>
+        <td class="pts">${r.points}</td></tr>`).join("");
+  }catch(e){
+    tbody.innerHTML = '';
+    fallback.style.display = 'block';
+    const wikiUrl = `https://en.wikipedia.org/wiki/${encodeURIComponent(year + ' ' + cfg.wikiBases[0]).replace(/%20/g,'_')}`;
+    fallback.innerHTML = `<div class="loading">ดึงตารางอัตโนมัติไม่สำเร็จรอบนี้ — ดูตารางคะแนนได้ที่:
+      <a href="${wikiUrl}" target="_blank" rel="noopener" style="color:var(--yellow)">Wikipedia ↗</a> ·
+      <a href="${cfg.official}" target="_blank" rel="noopener" style="color:var(--yellow)">เว็บทางการ ↗</a></div>`;
+  }
+}
+
+/* ---------------- CIRCUIT SPECS (static reference data — lengths/laps/corners change rarely) ---------------- */
+const CIRCUIT_INFO = {
+  albert_park:   { length: 5.278, laps: 58, corners: 14 },
+  shanghai:      { length: 5.451, laps: 56, corners: 16 },
+  suzuka:        { length: 5.807, laps: 53, corners: 18 },
+  bahrain:       { length: 5.412, laps: 57, corners: 15 },
+  jeddah:        { length: 6.174, laps: 50, corners: 27 },
+  miami:         { length: 5.412, laps: 57, corners: 19 },
+  villeneuve:    { length: 4.361, laps: 70, corners: 14 },
+  monaco:        { length: 3.337, laps: 78, corners: 19 },
+  catalunya:     { length: 4.675, laps: 66, corners: 16 },
+  red_bull_ring: { length: 4.318, laps: 71, corners: 10 },
+  silverstone:   { length: 5.891, laps: 52, corners: 18 },
+  spa:           { length: 7.004, laps: 44, corners: 19 },
+  hungaroring:   { length: 4.381, laps: 70, corners: 14 },
+  zandvoort:     { length: 4.259, laps: 72, corners: 14 },
+  monza:         { length: 5.793, laps: 53, corners: 11 },
+  baku:          { length: 6.003, laps: 51, corners: 20 },
+  marina_bay:    { length: 5.063, laps: 61, corners: 23 },
+  americas:      { length: 5.513, laps: 56, corners: 20 },
+  rodriguez:     { length: 4.304, laps: 71, corners: 17 },
+  interlagos:    { length: 4.309, laps: 71, corners: 15 },
+  vegas:         { length: 6.120, laps: 50, corners: 17 },
+  losail:        { length: 5.380, laps: 57, corners: 16 },
+  yas_marina:    { length: 5.281, laps: 58, corners: 16 }
+};
+
+/* ---------------- CIRCUIT MODAL ---------------- */
+function closeCircuitModal(){
+  document.getElementById('circuit-modal').classList.remove('open');
+}
+
+async function openCircuitModal(circuitId, circuitName, locality, country, raceName){
+  const overlay = document.getElementById('circuit-modal');
+  const header = document.getElementById('circuit-modal-header');
+  const statsEl = document.getElementById('circuit-modal-stats');
+  const bioEl = document.getElementById('circuit-modal-bio');
+  header.innerHTML = `
+    <div class="modal-head-flex">
+      <img class="modal-photo" id="circuit-modal-photo" style="display:none" alt="${circuitName}">
+      <div class="modal-photo-ph" id="circuit-modal-photo-ph">🏁</div>
+      <div style="flex:1">
+        <div class="modal-head-name">${circuitName}</div>
+        <div class="modal-head-meta"><span>${raceName}</span><span>${locality}, ${country}</span></div>
+      </div>
+    </div>`;
+  const info = CIRCUIT_INFO[circuitId];
+  if(info){
+    const distance = (info.length * info.laps).toFixed(1);
+    statsEl.innerHTML = `
+      <div class="circuit-stat"><div class="v">${info.length}</div><div class="l">Km / Lap</div></div>
+      <div class="circuit-stat"><div class="v">${info.laps}</div><div class="l">Laps</div></div>
+      <div class="circuit-stat"><div class="v">${info.corners}</div><div class="l">Corners</div></div>
+      <div class="circuit-stat"><div class="v">${distance}</div><div class="l">Km Total</div></div>`;
+  }else{
+    statsEl.innerHTML = `<div class="loading" style="grid-column:1/-1">ยังไม่มีข้อมูลสเปกสนามนี้</div>`;
+  }
+  bioEl.textContent = 'กำลังโหลดข้อมูล...';
+  overlay.classList.add('open');
+  loadCircuitPhotoBio(circuitName);
+  showWeather('circuit-weather', circuitGeo[circuitId]);
+}
+
+async function loadCircuitPhotoBio(circuitName){
+  const img = document.getElementById('circuit-modal-photo');
+  const ph = document.getElementById('circuit-modal-photo-ph');
+  const bioEl = document.getElementById('circuit-modal-bio');
+  try{
+    const enData = await fetchWikiSummary(circuitName);
+    if(!enData) throw new Error('not found');
+    if(enData.thumbnail && enData.thumbnail.source){
+      img.src = enData.thumbnail.source;
+      img.onload = ()=>{ img.style.display='block'; ph.style.display='none'; };
+    }
+    const resolvedTitle = enData.title || circuitName;
+    const llUrl = `https://en.wikipedia.org/w/api.php?origin=*&action=query&prop=langlinks&lllang=th&titles=${encodeURIComponent(resolvedTitle)}&format=json`;
+    const llRes = await fetch(llUrl);
+    const llData = await llRes.json();
+    const pages = llData.query && llData.query.pages;
+    const page = pages && Object.values(pages)[0];
+    const thTitle = page && page.langlinks && page.langlinks[0] && page.langlinks[0]['*'];
+    if(thTitle){
+      const thRes = await fetch(`https://th.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(thTitle.replace(/ /g,'_'))}`);
+      if(thRes.ok){
+        const thData = await thRes.json();
+        bioEl.textContent = thData.extract || enData.extract || 'ไม่มีข้อมูลประวัติสนาม';
+        return;
+      }
+    }
+    bioEl.textContent = (enData.extract ? 'ยังไม่มีบทความภาษาไทย (แสดงจากภาษาอังกฤษ): ' + enData.extract : 'ไม่มีข้อมูลประวัติสนาม');
+  }catch(e){
+    bioEl.textContent = 'ไม่พบข้อมูลเพิ่มเติมเกี่ยวกับสนามนี้';
+  }
+}
+
+/* ---------------- WEEKEND SCHEDULE + .ICS ---------------- */
+let weekendSessions = [];
+let weekendInfo = {};
+function renderWeekend(r){
+  const defs = [
+    ['FP1', r.FirstPractice], ['FP2', r.SecondPractice], ['FP3', r.ThirdPractice],
+    ['Sprint Quali', r.SprintQualifying || r.SprintShootout], ['Sprint', r.Sprint],
+    ['Qualifying', r.Qualifying], ['Race', { date:r.date, time:r.time }]
+  ];
+  weekendSessions = defs.filter(([,x]) => x && x.date).map(([name,x]) => ({
+    name, hasTime: !!x.time, dt: new Date(`${x.date}T${x.time || '00:00:00Z'}`)
+  })).sort((a,b)=>a.dt-b.dt);
+  weekendInfo = { name:r.raceName, round:r.round, circuit:`${r.Circuit.circuitName}, ${r.Circuit.Location.locality}` };
+  const now = new Date();
+  const tz = (Intl.DateTimeFormat().resolvedOptions().timeZone) || '';
+  document.getElementById('weekend-schedule').innerHTML =
+    `<div class="weekend-head">กำหนดการสุดสัปดาห์แข่ง <span>(เวลาท้องถิ่นของคุณ ${tz})</span></div>` +
+    weekendSessions.map(x=>{
+      const day = x.dt.toLocaleDateString('th-TH', { weekday:'short', day:'numeric', month:'short' });
+      const time = x.hasTime ? x.dt.toLocaleTimeString('th-TH', { hour:'2-digit', minute:'2-digit', hour12:false }) : 'TBC';
+      return `<div class="ws ${x.dt < now ? 'done' : ''} ${x.name === 'Race' ? 'race' : ''}"><span class="ws-n">${x.name}</span><span class="ws-d">${day}</span><span class="ws-t">${time}</span></div>`;
+    }).join('');
+  document.getElementById('ics-btn').style.display = weekendSessions.some(x=>x.hasTime) ? 'inline-flex' : 'none';
+}
+function downloadICS(){
+  const pad = (n) => String(n).padStart(2,'0');
+  const fmt = (d) => `${d.getUTCFullYear()}${pad(d.getUTCMonth()+1)}${pad(d.getUTCDate())}T${pad(d.getUTCHours())}${pad(d.getUTCMinutes())}00Z`;
+  const esc = (t) => String(t).replace(/([,;\\])/g, '\\$1');
+  const lines = ['BEGIN:VCALENDAR','VERSION:2.0','PRODID:-//F1 Dashboard//TH','CALSCALE:GREGORIAN'];
+  weekendSessions.filter(x=>x.hasTime).forEach((x,i)=>{
+    const end = new Date(x.dt.getTime() + (x.name === 'Race' ? 2 : 1) * 3600000);
+    lines.push('BEGIN:VEVENT', `UID:f1-${weekendInfo.round}-${i}@f1-dashboard`, `DTSTAMP:${fmt(new Date())}`,
+      `DTSTART:${fmt(x.dt)}`, `DTEND:${fmt(end)}`, `SUMMARY:${esc('F1 ' + weekendInfo.name + ' - ' + x.name)}`,
+      `LOCATION:${esc(weekendInfo.circuit)}`, 'END:VEVENT');
+  });
+  lines.push('END:VCALENDAR');
+  const blob = new Blob([lines.join('\r\n')], { type:'text/calendar' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = 'f1-weekend.ics';
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url), 1500);
+  showToast('ดาวน์โหลดไฟล์ปฏิทินแล้ว');
+}
+
+/* ---------------- LIVE TIMING TAB ---------------- */
+let allRaces = [];
+function buildSessions(r){
+  const defs = [
+    ['FP1', r.FirstPractice], ['FP2', r.SecondPractice], ['FP3', r.ThirdPractice],
+    ['Sprint Qualifying', r.SprintQualifying || r.SprintShootout], ['Sprint', r.Sprint],
+    ['Qualifying', r.Qualifying], ['Race', { date:r.date, time:r.time }]
+  ];
+  return defs.filter(([,x]) => x && x.date && x.time).map(([name,x]) => ({
+    name, raceName:r.raceName, round:r.round, dt:new Date(`${x.date}T${x.time}`),
+    dur: (name === 'Race' ? 2 : 1) * 3600000
+  }));
+}
+function sessionState(now = new Date()){
+  const all = allRaces.flatMap(buildSessions).sort((a,b)=>a.dt-b.dt);
+  const live = all.find(x => now >= x.dt && now < new Date(x.dt.getTime() + x.dur)) || null;
+  const upcoming = all.filter(x => x.dt > now);
+  return { live, next: upcoming[0] || null, upcoming: upcoming.slice(0,6) };
+}
+function fmtCountdown(ms){
+  const t = Math.max(0, Math.floor(ms/1000));
+  const d = Math.floor(t/86400), h = Math.floor(t%86400/3600), m = Math.floor(t%3600/60), sec = t%60;
+  const pad = (n) => String(n).padStart(2,'0');
+  return (d ? `${d} วัน ` : '') + `${pad(h)}:${pad(m)}:${pad(sec)}`;
+}
+function updateLive(){
+  const dot = document.getElementById('nav-live-dot');
+  if(!dot) return;
+  const { live, next, upcoming } = sessionState();
+  dot.classList.toggle('on', !!live);
+  if(!document.getElementById('tab-live').classList.contains('active')) return;
+  const statusEl = document.getElementById('live-status');
+  const subEl = document.getElementById('live-sub');
+  const badge = document.getElementById('live-badge-wrap');
+  const fmt = (dt) => dt.toLocaleString('th-TH', { weekday:'short', day:'numeric', month:'short', hour:'2-digit', minute:'2-digit', hour12:false });
+  if(!allRaces.length){ statusEl.textContent = 'กำลังโหลดตารางเซสชัน...'; return; }
+  if(live){
+    badge.innerHTML = '<span class="live-badge"><span class="live-dot"></span>LIVE NOW</span>';
+    statusEl.textContent = `${live.raceName} · ${live.name}`;
+    subEl.textContent = 'กำลังแข่งขันอยู่ — กดเปิด Live Timing ได้เลย';
+  }else if(next){
+    badge.innerHTML = '';
+    statusEl.textContent = `ถัดไป: ${next.raceName} · ${next.name}`;
+    subEl.textContent = `${fmt(next.dt)} (เวลาของคุณ) · อีก ${fmtCountdown(next.dt - new Date())}`;
+  }else{
+    badge.innerHTML = '';
+    statusEl.textContent = 'ไม่มีเซสชันที่เหลือในฤดูกาลนี้';
+    subEl.textContent = '';
+  }
+  document.getElementById('live-upcoming').innerHTML = upcoming.length
+    ? upcoming.map(x => `<div class="ws ${x.name === 'Race' ? 'race' : ''}" style="flex-direction:row;gap:12px;margin-bottom:6px"><span class="ws-n" style="min-width:120px">${x.name}</span><span class="ws-d" style="flex:1">${x.raceName}</span><span class="ws-t">${fmt(x.dt)}</span></div>`).join('')
+    : '<div class="loading">ไม่มีเซสชันที่จะถึง</div>';
+}
+setInterval(updateLive, 1000);
+function toggleLiveEmbed(){
+  const box = document.getElementById('live-embed');
+  const btn = document.getElementById('live-embed-btn');
+  if(box.firstChild){ box.innerHTML = ''; btn.textContent = 'ฝังไว้ในหน้านี้'; return; }
+  const f = document.createElement('iframe');
+  f.src = 'https://formula-timer.com/livetiming';
+  f.title = 'Formula-Timer Live Timing';
+  f.loading = 'lazy';
+  f.referrerPolicy = 'no-referrer';
+  f.allow = 'fullscreen';
+  box.appendChild(f);
+  btn.textContent = 'ปิดการฝัง';
+}
+
+/* ---------------- WEATHER (Open-Meteo, free, no key) + LOCAL TIME + FASTEST LAP ---------------- */
+const circuitGeo = {};
+function registerGeo(r){
+  const c = r.Circuit, loc = c.Location;
+  circuitGeo[c.circuitId] = { lat: parseFloat(loc.lat), lon: parseFloat(loc.long), date: r.date, name: c.circuitName };
+}
+function fmtRaceLocal(r){
+  if(!r.time) return r.date;
+  const d = new Date(`${r.date}T${r.time}`);
+  if(isNaN(d)) return r.date;
+  return d.toLocaleString('th-TH', { day:'numeric', month:'short', hour:'2-digit', minute:'2-digit', hour12:false });
+}
+function fastestLapTag(r){
+  const fl = r.FastestLap;
+  if(!fl || String(fl.rank) !== '1' || !fl.Time) return '';
+  return `<span class="fl">⏱ ${fl.Time.time}${fl.lap ? ' (รอบ '+fl.lap+')' : ''}</span>`;
+}
+function wxInfo(code){
+  if(code === 0) return ['☀️','แจ่มใส'];
+  if(code <= 2) return ['🌤️','มีเมฆบางส่วน'];
+  if(code === 3) return ['☁️','เมฆมาก'];
+  if(code === 45 || code === 48) return ['🌫️','หมอก'];
+  if(code >= 51 && code <= 57) return ['🌦️','ฝนปรอย'];
+  if(code >= 61 && code <= 67) return ['🌧️','ฝนตก'];
+  if(code >= 71 && code <= 77) return ['🌨️','หิมะ'];
+  if(code >= 80 && code <= 82) return ['🌦️','ฝนซู่'];
+  if(code >= 95) return ['⛈️','พายุฝนฟ้าคะนอง'];
+  return ['🌡️','ไม่ระบุ'];
+}
+const weatherCache = {};
+async function showWeather(elId, geo){
+  const el = document.getElementById(elId);
+  if(!el) return;
+  el.className = 'wx'; el.innerHTML = '';
+  if(!geo || isNaN(geo.lat) || isNaN(geo.lon) || !geo.date) return;
+  try{
+    const key = `${geo.lat},${geo.lon}`;
+    if(!weatherCache[key]){
+      const url = `https://api.open-meteo.com/v1/forecast?latitude=${geo.lat}&longitude=${geo.lon}` +
+        `&daily=weathercode,temperature_2m_max,temperature_2m_min,precipitation_probability_max,windspeed_10m_max&timezone=auto&forecast_days=16`;
+      const res = await fetch(url);
+      if(!res.ok) throw new Error('weather unavailable');
+      weatherCache[key] = await res.json();
+    }
+    const d = weatherCache[key].daily;
+    const i = d && d.time ? d.time.indexOf(geo.date) : -1;
+    if(i < 0){
+      el.className = 'wx show';
+      el.innerHTML = `<span class="wx-m">🌦️ พยากรณ์อากาศวันแข่งจะขึ้นเมื่อเหลือไม่เกิน 16 วัน</span>`;
+      return;
+    }
+    const [icon, text] = wxInfo(d.weathercode[i]);
+    el.className = 'wx show';
+    el.innerHTML = `<span class="wx-i">${icon}</span>
+      <span><b>${text}</b> · ${Math.round(d.temperature_2m_min[i])}–${Math.round(d.temperature_2m_max[i])}°C</span>
+      <span>☔ ฝน ${d.precipitation_probability_max[i] ?? '-'}%</span>
+      <span>💨 ลม ${Math.round(d.windspeed_10m_max[i])} กม./ชม.</span>
+      <span class="wx-m">พยากรณ์วันแข่ง (เวลาท้องถิ่นสนาม)</span>`;
+  }catch(e){ /* weather is optional: stay hidden on failure */ }
+}
+
+/* ---------------- STANDINGS EVO / GAP + CONSISTENCY ---------------- */
+async function prevStandingPositions(endpoint, listKey, idOf, round){
+  const map = {};
+  if(!(round > 1)) return map;
+  try{
+    const d = await getJSON(`${API}/current/${round-1}/${endpoint}.json`);
+    const l = d.MRData.StandingsTable.StandingsLists[0];
+    if(l) l[listKey].forEach(x => { map[idOf(x)] = +x.position; });
+  }catch(e){ /* evo is optional */ }
+  return map;
+}
+function evoTag(prev, cur){
+  if(!prev || !cur || prev === cur) return '';
+  const d = prev - cur;
+  return d > 0 ? `<span class="evo up">▲${d}</span>` : `<span class="evo down">▼${-d}</span>`;
+}
+function gapTag(leaderPts, pts){
+  const g = leaderPts - pts;
+  return g > 0 ? `<span class="gap">−${g}</span>` : '';
+}
+function computeConsistency(byDriver, st){
+  const sd = (arr, mean) => Math.sqrt(arr.reduce((a,x)=>a+(x-mean)*(x-mean), 0) / arr.length);
+  const rows = [];
+  st.forEach(s => {
+    const res = byDriver[s.Driver.driverId] || [];
+    const fin = res.filter(r => isFinished(r.status)).map(r => r.pos);
+    if(fin.length < 3) return;
+    const avg = fin.reduce((a,b)=>a+b, 0) / fin.length;
+    rows.push({
+      id: s.Driver.driverId,
+      name: `${s.Driver.givenName} ${s.Driver.familyName}`,
+      nat: s.Driver.nationality,
+      team: s.Constructors[0].name,
+      avg, sigma: sd(fin, avg),
+      pointsPct: Math.round(res.filter(r => r.points > 0).length / res.length * 100),
+      dnf: res.length - fin.length
+    });
+  });
+  return rows.sort((a,b) => a.sigma - b.sigma);
+}
+const consistencyCache = {};
+async function loadConsistency(st, sea){
+  const body = document.querySelector('#consistency-table tbody');
+  body.innerHTML = '<tr><td colspan="6" class="loading">กำลังคำนวณจากผลทุกเรซ...</td></tr>';
+  try{
+    if(!consistencyCache[sea]){
+      const byDriver = {};
+      for(let offset = 0; offset < 2000; offset += 100){
+        const d = await getJSON(`${API}/${sea}/results.json?limit=100&offset=${offset}`);
+        d.MRData.RaceTable.Races.forEach(r => r.Results.forEach(x => {
+          const id = x.Driver.driverId;
+          if(!byDriver[id]) byDriver[id] = [];
+          byDriver[id].push({ round:r.round, pos:+x.position, status:x.status, points:+x.points });
+        }));
+        if(offset + 100 >= +d.MRData.total) break;
+        await new Promise(res => setTimeout(res, 250));
+      }
+      consistencyCache[sea] = byDriver;
+    }
+    const rows = computeConsistency(consistencyCache[sea], st);
+    if(!rows.length){ body.innerHTML = '<tr><td colspan="6" class="loading">ยังมีข้อมูลไม่พอ (ต้องมีผลอย่างน้อย 3 เรซ)</td></tr>'; return; }
+    body.innerHTML = rows.map((r,i)=>`
+      <tr class="row-in ${isRedBull(r.team)?'row-rb':''}" style="animation-delay:${i*20}ms">
+        <td class="pos">${i === 0 ? '🎯' : i+1}</td>
+        <td class="driver-name">${isFav(r.id)?'⭐ ':''}${flag(r.nat)} ${r.name}</td>
+        <td class="pts">${r.avg.toFixed(1)}</td>
+        <td class="pts">${r.sigma.toFixed(2)}</td>
+        <td class="pts" style="font-weight:400">${r.pointsPct}%</td>
+        <td class="pts" style="font-weight:400">${r.dnf}</td></tr>`).join("");
+  }catch(e){ body.innerHTML = `<tr><td colspan="6" class="error">โหลดข้อมูลไม่สำเร็จ: ${e.message}</td></tr>`; }
+}
+
+/* ---------------- STATS TAB ---------------- */
+const CHART_COLORS = ['#F5B700','#38BDF8','#F43F5E','#22C55E','#A855F7','#FB923C'];
+const isFinished = (st) => st === 'Finished' || /^\+\d+ Laps?$/.test(st || '');
+const raceCache = {};
+const progressCache = {};
+let h2hList = [];
+
+async function driverSeasonRaces(id, sea){
+  const key = `${sea}:${id}`;
+  if(!raceCache[key]){
+    const d = await getJSON(`${API}/${sea}/drivers/${id}/results.json?limit=40`);
+    raceCache[key] = d.MRData.RaceTable.Races;
+  }
+  return raceCache[key];
+}
+
+async function loadStats(){
+  const sea = season;
+  const statusEl = document.getElementById('champ-status');
+  statusEl.innerHTML = '<div class="loading">กำลังโหลด...</div>';
+  document.getElementById('progress-chart').innerHTML = '<div class="loading">กำลังโหลดกราฟ...</div>';
+  document.getElementById('progress-legend').innerHTML = '';
+  try{
+    const [stData, calData] = await Promise.all([
+      getJSON(`${API}/${sea}/driverStandings.json`),
+      getJSON(`${API}/${sea}.json`)
+    ]);
+    const list = stData.MRData.StandingsTable.StandingsLists[0];
+    if(!list || !list.DriverStandings.length){
+      statusEl.innerHTML = '<div class="loading">ยังไม่มีข้อมูลฤดูกาลนี้</div>';
+      document.getElementById('progress-chart').innerHTML = '';
+      return;
+    }
+    const st = list.DriverStandings;
+    document.getElementById('stats-season').textContent = list.season;
+    renderChampStatus(st, calData.MRData.RaceTable.Races, +list.season);
+    fillH2H(st);
+    loadProgress(st.slice(0,6), sea);
+    loadConsistency(st, sea);
+  }catch(e){ statusEl.innerHTML = `<div class="error">โหลดข้อมูลไม่สำเร็จ: ${e.message}</div>`; }
+}
+
+function renderChampStatus(st, races, year){
+  const now = new Date();
+  const left = races.filter(r => new Date(`${r.date}T${r.time || '00:00:00Z'}`) > now);
+  const perRace = year >= 2025 ? 25 : 26;   // fastest-lap bonus point was removed from 2025
+  const maxRem = left.reduce((sum, r) => sum + perRace + (r.Sprint ? 8 : 0), 0);
+  const leader = st[0], second = st[1];
+  const gap = second ? (+leader.points - +second.points) : 0;
+  const nm = (x) => `${x.Driver.givenName} ${x.Driver.familyName}`;
+  const alive = st.filter(x => +x.points + maxRem > +leader.points);
+  let verdict;
+  if(!left.length) verdict = `จบฤดูกาลแล้ว — แชมป์คือ <b>${nm(leader)}</b> 🏆`;
+  else if(gap > maxRem) verdict = `<b>${nm(leader)}</b> ได้แชมป์แน่นอนในทางคณิตศาสตร์แล้ว 🏆`;
+  else verdict = `ยังมีลุ้นแชมป์ <b>${alive.length}</b> คน (ในทางคณิตศาสตร์)`;
+  const box = (v, l) => `<div class="circuit-stat"><div class="v">${v}</div><div class="l">${l}</div></div>`;
+  document.getElementById('champ-status').innerHTML = `
+    <div class="champ-grid">
+      ${box(leader.points, 'แต้มผู้นำ')}${box(gap, 'ห่างอันดับ 2')}${box(left.length, 'เรซที่เหลือ')}${box(maxRem, 'แต้มสูงสุดที่เหลือ')}
+    </div>
+    <p class="champ-note">${verdict}</p>
+    ${left.length && alive.length > 1 ? `<div>${alive.map(x=>`<span class="chip">${flag(x.Driver.nationality)} ${x.Driver.familyName} · ${x.points}</span>`).join('')}</div>` : ''}
+    <p class="champ-note" style="margin-top:8px">คำนวณจาก ${perRace} แต้ม/เรซ และ 8 แต้ม/สปรินต์ที่เหลือ (ไม่รวมกรณีแต้มเท่ากัน)</p>`;
+}
+
+async function loadProgress(top, sea){
+  const chart = document.getElementById('progress-chart');
+  const key = `${sea}:${top.map(t=>t.Driver.driverId).join(',')}`;
+  try{
+    if(!progressCache[key]){
+      const series = [];
+      for(const x of top){
+        const id = x.Driver.driverId;
+        const races = await driverSeasonRaces(id, sea);
+        let sprints = [];
+        try{ const sd = await getJSON(`${API}/${sea}/drivers/${id}/sprint.json?limit=40`); sprints = sd.MRData.RaceTable.Races; }catch(e){}
+        const byRound = {};
+        races.forEach(r => { byRound[+r.round] = (byRound[+r.round] || 0) + (+r.Results[0].points || 0); });
+        sprints.forEach(r => { const sr = (r.SprintResults || [])[0]; if(sr) byRound[+r.round] = (byRound[+r.round] || 0) + (+sr.points || 0); });
+        series.push({ name:x.Driver.familyName, byRound });
+      }
+      progressCache[key] = series;
+    }
+    if(sea !== season) return;
+    drawProgress(progressCache[key]);
+  }catch(e){ chart.innerHTML = `<div class="error">โหลดกราฟไม่สำเร็จ: ${e.message}</div>`; }
+}
+
+function drawProgress(series){
+  const chart = document.getElementById('progress-chart');
+  const rounds = [...new Set(series.flatMap(x => Object.keys(x.byRound).map(Number)))].sort((a,b)=>a-b);
+  if(!rounds.length){ chart.innerHTML = '<div class="loading">ยังไม่มีผลการแข่งขัน</div>'; return; }
+  const W = 640, H = 300, L = 40, R = 12, T = 14, B = 26;
+  const cum = series.map(x => { let c = 0; return rounds.map(r => { c += x.byRound[r] || 0; return c; }); });
+  const maxY = Math.max(...cum.map(a => a[a.length-1]), 10);
+  const niceMax = Math.ceil(maxY / 50) * 50;
+  const X = (i) => rounds.length === 1 ? (L + (W-L-R)/2) : L + (i/(rounds.length-1)) * (W-L-R);
+  const Y = (v) => T + (1 - v/niceMax) * (H-T-B);
+  let g = '';
+  for(let k = 0; k <= 4; k++){
+    const v = niceMax * k / 4;
+    g += `<line x1="${L}" x2="${W-R}" y1="${Y(v)}" y2="${Y(v)}" stroke="rgba(255,255,255,0.07)"/><text x="${L-6}" y="${Y(v)+3}" text-anchor="end" fill="#8B92A0" font-size="10">${Math.round(v)}</text>`;
+  }
+  const step = Math.ceil(rounds.length / 12);
+  rounds.forEach((r,i) => { if(i % step === 0 || i === rounds.length-1) g += `<text x="${X(i)}" y="${H-8}" text-anchor="middle" fill="#8B92A0" font-size="10">${r}</text>`; });
+  cum.forEach((a,si) => {
+    const pts = a.map((v,i) => `${X(i).toFixed(1)},${Y(v).toFixed(1)}`).join(' ');
+    g += `<polyline points="${pts}" fill="none" stroke="${CHART_COLORS[si]}" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round"/>`;
+    g += `<circle cx="${X(a.length-1).toFixed(1)}" cy="${Y(a[a.length-1]).toFixed(1)}" r="3.5" fill="${CHART_COLORS[si]}"/>`;
+  });
+  chart.innerHTML = `<svg viewBox="0 0 ${W} ${H}" width="100%" style="display:block;max-width:100%" role="img" aria-label="Points progression">${g}</svg>`;
+  document.getElementById('progress-legend').innerHTML = series.map((x,i) => `<span><i style="background:${CHART_COLORS[i]}"></i>${x.name} (${cum[i][cum[i].length-1]})</span>`).join('');
+}
+
+function fillH2H(st){
+  h2hList = st;
+  const opts = st.map(x => `<option value="${x.Driver.driverId}">${x.Driver.givenName} ${x.Driver.familyName}</option>`).join('');
+  const a = document.getElementById('h2h-a'), b = document.getElementById('h2h-b');
+  a.innerHTML = opts; b.innerHTML = opts;
+  a.value = st[0].Driver.driverId;
+  b.value = (st[1] || st[0]).Driver.driverId;
+  a.onchange = compareDrivers; b.onchange = compareDrivers;
+  compareDrivers();
+}
+
+function computeStats(races){
+  const fin = races.map(r => r.Results[0]);
+  const ok = fin.filter(r => isFinished(r.status));
+  const pos = ok.map(r => +r.position);
+  const sum = (arr) => arr.reduce((x,y)=>x+y, 0);
+  return {
+    wins: fin.filter(r => r.position === '1').length,
+    podiums: ok.filter(r => +r.position <= 3).length,
+    best: pos.length ? Math.min(...pos) : null,
+    avgFinish: pos.length ? sum(pos)/pos.length : null,
+    avgGrid: fin.length ? sum(fin.map(r => (+r.grid || 20)))/fin.length : null,
+    dnf: fin.length - ok.length
+  };
+}
+
+async function compareDrivers(){
+  const sea = season;
+  const a = document.getElementById('h2h-a').value, b = document.getElementById('h2h-b').value;
+  const out = document.getElementById('h2h-result');
+  if(!a || !b) return;
+  if(a === b){ out.innerHTML = '<div class="loading">เลือกนักแข่งสองคนที่ต่างกัน</div>'; return; }
+  out.innerHTML = '<div class="loading">กำลังเปรียบเทียบ...</div>';
+  try{
+    const ra = await driverSeasonRaces(a, sea);
+    const rb = await driverSeasonRaces(b, sea);
+    if(sea !== season) return;
+    const sa = computeStats(ra), sb = computeStats(rb);
+    const da = h2hList.find(x => x.Driver.driverId === a), db = h2hList.find(x => x.Driver.driverId === b);
+    const posB = {}; rb.forEach(r => posB[r.round] = +r.Results[0].position);
+    let aheadA = 0, aheadB = 0;
+    ra.forEach(r => { const pb = posB[r.round]; if(pb === undefined) return; const pa = +r.Results[0].position; if(pa < pb) aheadA++; else if(pb < pa) aheadB++; });
+    const f1 = (v) => v === null ? '-' : v.toFixed(1);
+    const rows = [
+      ['แต้มรวม', +da.points, +db.points, 'high', (v)=>v],
+      ['ชนะ', sa.wins, sb.wins, 'high', (v)=>v],
+      ['โพเดียม', sa.podiums, sb.podiums, 'high', (v)=>v],
+      ['อันดับจบดีที่สุด', sa.best, sb.best, 'low', (v)=>v === null ? '-' : 'P'+v],
+      ['จบเฉลี่ย', sa.avgFinish, sb.avgFinish, 'low', f1],
+      ['กริดเฉลี่ย', sa.avgGrid, sb.avgGrid, 'low', f1],
+      ['ไม่จบเรซ (DNF)', sa.dnf, sb.dnf, 'low', (v)=>v],
+      ['จบนำหน้ากัน (รอบ)', aheadA, aheadB, 'high', (v)=>v]
+    ];
+    const better = (x, y, mode) => (x === null || y === null || x === y) ? 0 : ((mode === 'high' ? x > y : x < y) ? 1 : -1);
+    out.innerHTML = `<div class="h2h-head"><div>${da.Driver.familyName}</div><div></div><div>${db.Driver.familyName}</div></div>` +
+      rows.map(([lbl, x, y, mode, fmt]) => {
+        const w = better(x, y, mode);
+        return `<div class="h2h-row"><div class="${w === 1 ? 'win' : ''}">${fmt(x)}</div><div class="lbl">${lbl}</div><div class="${w === -1 ? 'win' : ''}">${fmt(y)}</div></div>`;
+      }).join('');
+  }catch(e){ out.innerHTML = `<div class="error">โหลดข้อมูลไม่สำเร็จ: ${e.message}</div>`; }
+}
+
+/* ---------------- TEAM MODAL ---------------- */
+function closeTeamModal(){ document.getElementById('team-modal').classList.remove('open'); }
+async function openTeamModal(id){
+  const t = teamCache[id];
+  if(!t) return;
+  const header = document.getElementById('team-modal-header');
+  const tbody = document.querySelector('#team-modal-table tbody');
+  header.innerHTML = `
+    <div class="modal-head-name">${t.name}</div>
+    <div class="modal-head-meta"><span>${t.nationality}</span>${t.position ? `<span>อันดับที่ ${posMedal(t.position)}</span>` : ''}${t.points !== undefined ? `<span>${t.points} pts</span>` : ''}${t.wins !== undefined ? `<span>ชนะ ${t.wins} เรซ</span>` : ''}</div>
+    <div style="margin-top:10px">${t.drivers.map(d => `<span class="chip">${flag(d.nat)} ${d.name} · ${d.points}</span>`).join('') || '<span class="meta">ไม่มีข้อมูลนักแข่ง</span>'}</div>`;
+  tbody.innerHTML = '<tr><td colspan="4" class="loading">กำลังโหลดผลการแข่งขัน...</td></tr>';
+  document.getElementById('team-modal').classList.add('open');
+  try{
+    const data = await getJSON(`${API}/${season}/constructors/${id}/results.json?limit=100`);
+    const races = data.MRData.RaceTable.Races;
+    if(!races.length){ tbody.innerHTML = '<tr><td colspan="4" class="loading">ยังไม่มีผลการแข่งขัน</td></tr>'; return; }
+    tbody.innerHTML = races.map(r => {
+      const pts = r.Results.reduce((x, y) => x + (+y.points || 0), 0);
+      const res = r.Results.map(y => `${y.Driver.code || y.Driver.familyName}: ${posMedal(y.position)}`).join(' · ');
+      return `<tr><td class="pos">${r.round}</td><td class="driver-name">${r.raceName}</td><td class="team-tag">${res}</td><td class="pts">${pts}</td></tr>`;
+    }).join("");
+  }catch(e){ tbody.innerHTML = `<tr><td colspan="4" class="error">โหลดข้อมูลไม่สำเร็จ: ${e.message}</td></tr>`; }
+}
+
+/* ---------------- BACK OFFICE CONFIG (optional: skipped when config.js has no Supabase keys) ---------------- */
+const escHTML = (v) => String(v ?? '').replace(/[&<>"']/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+let siteConfig = null;
+let configReady = Promise.resolve();
+const CLOUD = (() => {
+  const c = window.F1_CLOUD;
+  return c && /^https:\/\/[a-z0-9-]+\.supabase\.co\/?$/i.test(c.url || '') && c.key && !/YOUR/i.test(c.key)
+    ? { url: c.url.replace(/\/$/, ''), key: c.key } : null;
+})();
+const cloudHeaders = () => {
+  const h = { apikey: CLOUD.key };
+  if(CLOUD.key.startsWith('eyJ')) h.Authorization = 'Bearer ' + CLOUD.key;   // legacy anon JWT keys
+  return h;
+};
+async function loadSiteConfig(){
+  if(!CLOUD || !location.protocol.startsWith('http')) return;
+  try{
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 6000);
+    const res = await fetch(`${CLOUD.url}/rest/v1/site_config?select=key,value`, { headers: cloudHeaders(), signal: ctrl.signal });
+    clearTimeout(timer);
+    if(!res.ok) return;
+    const rows = await res.json();
+    const by = {};
+    (Array.isArray(rows) ? rows : []).forEach(r => { by[r.key] = r.value; });
+    const news = (Array.isArray(by.news) ? by.news : [])
+      .sort((a, b) => ((b.pinned ? 1 : 0) - (a.pinned ? 1 : 0)) || String(b.date).localeCompare(String(a.date))).slice(0, 30);
+    siteConfig = { settings: by.settings || {}, news, overrides: by.overrides || {} };
+    applySiteConfig(siteConfig);
+  }catch(e){ /* back office offline: site works with defaults */ }
+}
+function applySiteConfig(c){
+  const s = c.settings || {};
+  if(s.siteTitle) document.title = s.siteTitle;
+  if(/^#[0-9a-fA-F]{6}$/.test(s.accent || '')) document.documentElement.style.setProperty('--yellow', s.accent);
+  (s.hiddenTabs || []).forEach(t => {
+    if(!/^[a-z0-9_-]+$/.test(String(t))) return;
+    const b = document.querySelector(`nav button[data-tab="${t}"]`);
+    if(b && t !== 'overview') b.style.display = 'none';
+  });
+  const bn = document.getElementById('site-banner'), a = s.announcement;
+  if(a && a.enabled && a.text){
+    bn.className = 'site-banner show ' + (['info','success','warn','alert'].includes(a.level) ? a.level : 'info');
+    bn.textContent = a.text;
+  }
+  renderNews(c.news || []);
+  const team = (s.highlightTeam || '').trim().toLowerCase();
+  if(team && team !== highlightTeam){
+    highlightTeam = team;
+    Object.keys(loaded).forEach(k => delete loaded[k]);
+    loadDriverStandings(); loadConstructorStandings(); loadLastResults();
+  }
+}
+function renderNews(items){
+  const panel = document.getElementById('news-panel'), list = document.getElementById('news-list');
+  if(!items.length){ panel.style.display = 'none'; return; }
+  panel.style.display = '';
+  list.innerHTML = items.map(n => `<div class="news-item${n.pinned ? ' pinned' : ''}">
+      <div class="news-meta"><span class="news-tag">${escHTML(n.tag || 'News')}</span><span>${escHTML(n.date)}</span></div>
+      <div class="news-title">${n.pinned ? '📌 ' : ''}${escHTML(n.title)}</div>
+      ${n.body ? `<div class="news-body">${escHTML(n.body)}</div>` : ''}</div>`).join('');
+}
+const sentHits = new Set();
+function sendHit(tab){
+  if(!CLOUD || !location.protocol.startsWith('http') || sentHits.has(tab)) return;
+  sentHits.add(tab);
+  try{
+    const first = !sessionStorage.getItem('f1_visit');
+    sessionStorage.setItem('f1_visit', '1');
+    fetch(`${CLOUD.url}/rest/v1/rpc/hit`, {
+      method:'POST', headers:{ ...cloudHeaders(), 'Content-Type':'application/json' },
+      body: JSON.stringify({ p_tab: tab, p_visit: first }), keepalive:true
+    }).catch(() => {});
+  }catch(e){}
+}
+
+/* ---------------- SERVICE WORKER (faster repeat loads + offline shell) ---------------- */
+if('serviceWorker' in navigator && location.protocol.startsWith('http')){
+  window.addEventListener('load', () => { navigator.serviceWorker.register('sw.js').catch(()=>{}); });
+}
+
+/* ---------------- INIT ---------------- */
+configReady = loadSiteConfig();
+sendHit('overview');
+loadNextRace();
+loadDriverStandings();
+loadConstructorStandings();
+loadLastResults();
+</script>
+</body>
+</html>
